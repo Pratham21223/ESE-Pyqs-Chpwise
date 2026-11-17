@@ -19,6 +19,7 @@ This folder classifies the DJS23-scheme DBMS past-year questions into the **six 
 | [Unit_4_Relational_Database_Design.md](Unit_4_Relational_Database_Design.md) | 4 | Normalization, FDs, 1NF/2NF/3NF/BCNF, 11 solved FD problems, candidate keys, decomposition |
 | [Unit_5_Transaction_Management_and_Recovery.md](Unit_5_Transaction_Management_and_Recovery.md) | 5 | ACID, states, serializability (9 schedules), 2PL, timestamp ordering, validation, deadlock, recovery, shadow paging/ARIES |
 | [Unit_6_Indexing.md](Unit_6_Indexing.md) | 6 | Indexing basics, primary/secondary, dense/sparse, clustered, single/multilevel, B-tree, B+ tree, hashing vs indexing |
+| [DBMS_Last_Minute_Revision.md](DBMS_Last_Minute_Revision.md) | All 1–6 | **One-file cheat sheet:** formulas, syntax, methods, question templates, past-answer tables |
 
 **Coverage:** 98 main question entries (many with multiple sub-questions). The SQL query bank alone contains 80+ individual queries; Unit 2 contains 10 ER scenarios, 6 paper-specific ER/EER mappings and 4 relational-algebra sets; Unit 4 contains 11 fully solved FD/normalization problems.
 
