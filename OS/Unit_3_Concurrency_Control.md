@@ -15,6 +15,17 @@
 
 **Concurrency** means several processes/threads are making progress during the same time interval. On a single CPU they are interleaved; on multiple cores they may run truly in parallel. Concurrency introduces shared state, and therefore several principles must be respected.
 
+** starting point: independent vs cooperative processes**
+
+| Type | Meaning |
+|---|---|
+| **Independent process** | Does not share any data with another process; it cannot affect or be affected by other processes |
+| **Cooperative process** | Shares a variable, memory, code or resource (keyboard, mouse, CPU, etc.) with another process |
+
+Race example: `shared = 5`; P1 executes `x = shared; x++; sleep(1); shared = x;` and P2 executes `y = shared; y--; sleep(1); shared = y;`. Ideally `shared` should remain 5, but the interleaving can produce **4** (or 6) — an inconsistent value. Hence concurrent processes need **synchronization**.
+
+**Principles (summary)**
+
 | Principle | Meaning |
 |---|---|
 | **Atomicity** | An operation either completes fully or not at all; no other thread can observe a half-updated state |
@@ -44,30 +55,18 @@
 
 A **race condition** occurs when two or more processes access shared data concurrently and the final result depends on the order of their interleaving.
 
-**Example — lost update**
-
-```c
-int balance = 1000;
-
-void withdraw() {          void deposit() {
-    int t = balance;           int t = balance;
-    t = t - 100;               t = t + 200;
-    balance = t;               balance = t;
-}                          }
-```
-
-If both read `balance = 1000` before either writes:
+**Example —  shared counter**
 
 ```text
-withdraw: read 1000 → compute 900
-deposit : read 1000 → compute 1200
-withdraw: write 900
-deposit : write 1200
+shared = 5
 
-Final balance = 1200, but the correct value is 1100. The deposit overwrote the withdrawal.
+P1:  x = shared;   x++;   sleep(1);   shared = x;
+P2:  y = shared;   y--;   sleep(1);   shared = y;
 ```
 
-**Hardware fix — atomic test-and-set / compare-and-swap**
+If both read `shared = 5` before either writes, P1 writes 6 and P2 writes 4 (or P2 writes 4 and P1 writes 6). The final value depends on the order, and the intended value 5 is lost. This is a **race condition**: the final value of shared data depends on which process finishes last.
+
+**Hardware fix — atomic test-and-set / swap**
 
 A hardware instruction performs read-modify-write atomically (no interrupt or other CPU can interleave in the middle).
 
@@ -98,7 +97,36 @@ while (compare_and_swap(&lock, 0, 1) != 0)
 
 **Why it works:** the test and the set happen as one indivisible hardware operation. Only one process can observe `old == 0`; all others spin until the lock is released. On a multiprocessor, the instruction also enforces cache coherence/memory ordering. Variants: `xchg`, `LDREX/STREX` (ARM), `CMPXCHG` (x86). Hardware locks are the basis of spinlocks, semaphores and monitors.
 
-**Caveats:** busy waiting wastes CPU; need bounded waiting (ticket lock) to avoid starvation; disable-interrupts works only on a uniprocessor and only for short critical sections.
+**'s Swap instruction**
+
+```c
+void Swap(boolean *a, boolean *b) {
+    boolean temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+// Shared lock initialized to FALSE; each process has a local key
+lock = FALSE;
+do {
+    key = TRUE;
+    while (key == TRUE)
+        Swap(&lock, &key);
+    /* critical section */
+    lock = FALSE;
+    /* remainder section */
+} while (TRUE);
+```
+
+**'s TestAndSet/Swap properties**
+
+- Two `TestAndSet()` (or two `Swap()`) instructions **cannot run in parallel on two different CPUs**.
+- The instruction is executed **automatically** and **cannot be interrupted**.
+- **Mutual exclusion** is guaranteed by hardware.
+- **Progress** is achieved (no blocking).
+- **Bounded waiting is not met**: P1 can repeatedly enter the critical section while P2 never gets a chance. The same limitation applies to both TestAndSet and Swap.
+
+**Caveats:** busy waiting wastes CPU; a ticket lock or queue is needed for bounded waiting; disabling interrupts works only on a uniprocessor and only for short critical sections.
 
 ---
 
@@ -116,6 +144,22 @@ while (compare_and_swap(&lock, 0, 1) != 0)
 **Answer**
 
 A **critical section (CS)** is the part of a program that accesses a shared resource (variable, file, printer, buffer). **Mutual exclusion (mutex)** is the requirement that **at most one** process executes its CS for that resource at any time.
+
+** structure of a process**
+
+```text
+do {
+    entry section       // request permission to enter
+    critical section    // access shared resource atomically
+    exit section        // release the lock / undo entry
+    remainder section   // rest of the program
+} while (1);
+```
+
+- **Entry section:** decides whether the process may enter the CS.
+- **Critical section:** code that accesses shared resources and must execute as an atomic action.
+- **Exit section:** releases the lock taken in the entry section.
+- **Remainder section:** the remaining part of the program.
 
 **Why it is essential:** without it, interleaved reads/writes cause race conditions, inconsistent data, lost updates and corrupted files. Mutual exclusion serializes the CS, so the shared state changes atomically from the point of view of other processes.
 
@@ -153,6 +197,8 @@ do {
     /* remainder section */
 } while (1);
 ```
+
+**Peterson's solution:** it is restricted to **two processes** that alternate between their critical and remainder sections. It uses two shared data items: `int turn` (whose turn it is to enter) and `boolean flag[2]` (whether a process is ready to enter). It satisfies **mutual exclusion, progress and bounded waiting**, and is a classic algorithmic description — but it **may not work correctly on modern computer architectures** because of instruction reordering/memory consistency.
 
 **Hardware approaches**
 
@@ -216,7 +262,25 @@ Student:
 
 **Answer**
 
-A **semaphore** is an integer synchronization variable that is accessed only through two atomic operations:
+A **semaphore** is an integer synchronization variable that is accessed only through two standard atomic operations: **wait()** and **signal()**. The classic names are **P** (from Dutch *proberen*, “to test”) and **V** (from Dutch *verhogen*, “to increment”).
+
+**Definition (busy-wait version)**
+
+```text
+P(Semaphore S) {          // wait()
+    while (S <= 0)
+        ;                 // no operation (busy wait)
+    S--;
+}
+
+V(Semaphore S) {          // signal()
+    S++;
+}
+```
+
+All modifications to the integer value in `wait()` and `signal()` must be executed **indivisibly**: when one process modifies the semaphore value, no other process can simultaneously modify the same value. This is the busy-wait version; use it when the question asks for the basic semaphore definition.
+
+**OS implementation (blocking version — standard clarification)**
 
 ```text
 wait(S):   S = S - 1;
@@ -226,14 +290,23 @@ signal(S): S = S + 1;
            if (S <= 0) wake up one process from S's queue;
 ```
 
-(The classic names are `P`/`wait` and `V`/`signal`.)
+A real OS normally avoids busy waiting by blocking the process and moving it to the semaphore's wait queue; `signal` wakes one waiter. Note that the counting example treats the semaphore as a **signed counter**: `7 − 20 = −13`, then `−13 + 18 = 5`. That matches the blocking implementation's negative-value convention; the busy-wait `while (S <= 0)` version would instead keep the waiter spinning and would not decrement below zero.
 
-**Types**
+**Types **
 
 | Type | Range | Use |
 |---|---|---|
-| **Binary semaphore (mutex)** | 0 or 1 | Mutual exclusion for one resource/CS |
-| **Counting semaphore** | 0…N | Manage N identical resources (printers, lab systems, buffer slots) |
+| **Binary semaphore (mutex)** | 0 or 1 | Mutual exclusion for one resource/CS; on some systems called a mutex lock |
+| **Counting semaphore** | Unrestricted domain (0…N, or negative when waiters are queued) | Controls access to a resource with **multiple instances** (printers, lab systems, buffer slots) |
+
+**Solved examples**
+
+1. A counting semaphore is initialized to **12**. Then 10 `P` (wait) and 4 `V` (signal) operations are performed:
+   `S = 12 − 10 + 4 = 6`.
+2. At a particular time the value of a counting semaphore is **7**. Then 20 `P` operations and `x` `V` operations are completed, and the final value is **5**:
+   `7 − 20 + x = 5` → `x = 18`.
+
+**Important note on the three requirements:** a semaphore achieves **mutual exclusion** and **progress**, but **bounded waiting is not guaranteed** — one process can keep re-entering the critical section while another never gets a chance. A FIFO queue/ticket lock is needed to guarantee bounded waiting.
 
 **Mutual exclusion with a binary semaphore**
 
@@ -324,7 +397,23 @@ monitor BankAccount {
 }
 ```
 
-**Condition variables:** `wait(c)` releases the monitor and blocks the caller; `signal(c)` wakes one waiter. Unlike a semaphore, a condition variable has **no memory** — a signal with no waiter is lost.
+** components of a monitor**
+
+| Component | Role |
+|---|---|
+| **Initialization code** | Runs once when the monitor is created |
+| **Private data** | Shared variables hidden from outside; only monitor procedures can access them |
+| **Monitor procedures** | Functions that can be called from outside the monitor |
+| **Monitor entry queue** | Holds threads/processes waiting to enter the monitor |
+
+The schematic shows **shared data** at the top, **operations/procedures** in the middle, **initialization code** at the bottom, and an **entry queue** of processes waiting to get in. With condition variables, there are additional queues associated with `x` and `y`.
+
+**Condition variables:** `wait(c)` releases the monitor and blocks the caller; `signal(c)` wakes one waiter. Unlike a semaphore, a condition variable has **no memory** — a signal with no waiter is lost. If no `x.wait()` is pending, `x.signal()` has no effect.
+
+**Signal semantics:** if process P calls `x.signal()` and process Q is suspended in `x.wait()`, both cannot run in parallel. Options:
+- **Signal and wait** — P waits until Q leaves the monitor or waits on another condition.
+- **Signal and continue** — Q waits until P leaves the monitor or waits on another condition.
+- Concurrent Pascal uses a compromise: P immediately leaves the monitor and Q resumes. Mesa, C# and Java use signal-and-continue.
 
 | Aspect | Monitor | Semaphore |
 |---|---|---|
@@ -389,6 +478,16 @@ Consumer:
 - `mutex` ensures only one process touches the buffer at a time.
 - **Order matters:** `wait(empty)`/`wait(full)` must be outside `wait(mutex)`. Reversing them causes deadlock (producer holds mutex and waits for empty, consumer cannot enter to free a slot).
 
+**Trace (N = 5, so empty = 5, full = 0, mutex = 1)**
+
+| Operation | `empty` | `full` | `mutex` | Result |
+|---|---:|---:|---:|---|
+| Produce item x | 5 → 4 | 0 | 1 → 0 → 1 | x inserted, then full 0 → 1 |
+| Produce item y | 4 → 3 | 1 → 2 | 1 → 0 → 1 | y inserted |
+| Consume item y | 3 → 4 | 2 → 1 | 1 → 0 → 1 | y removed |
+| Buffer full | 0 | 5 | 1 | Producer's `wait(empty)` blocks — no overflow |
+| Buffer empty | 5 | 0 | 1 | Consumer's `wait(full)` blocks — no underflow |
+
 ### (b) Monitor solution
 
 ```text
@@ -439,14 +538,14 @@ The monitor guarantees mutual exclusion automatically; `notFull` and `notEmpty` 
 
 ```c
 semaphore mutex = 1;      // protects readcount
-semaphore write = 1;      // exclusive writer / first reader
+semaphore wrt = 1;        // exclusive writer / first reader
 int readcount = 0;
 
 Reader:
     wait(mutex);
     readcount++;
     if (readcount == 1)
-        wait(write);      // first reader locks out writers
+        wait(wrt);        // first reader locks out writers
     signal(mutex);
 
     read the resource;
@@ -454,16 +553,17 @@ Reader:
     wait(mutex);
     readcount--;
     if (readcount == 0)
-        signal(write);    // last reader releases
+        signal(wrt);      // last reader releases
     signal(mutex);
 
 Writer:
-    wait(write);
+    wait(wrt);
     write the resource;
-    signal(write);
+    signal(wrt);
 ```
 
-- The first reader locks `write`; the last reader unlocks it. Other readers only touch `readcount`.
+- The first reader locks `wrt`; the last reader unlocks it. Other readers only touch `readcount`.
+- **Trace:** first reader: `mutex 1→0`, `readcount 0→1`, `wrt 1→0` (writer is locked out), `mutex 0→1`. A second reader can then enter: `mutex`, `readcount 1→2`, `mutex`; both read together. As readers leave, `readcount` decreases; when it reaches 0, `wrt` is set back to 1 so a writer can enter.
 - **Problem:** if readers keep arriving, `readcount` never reaches 0 and the writer **starves**.
 
 **Second readers–writers (writers preference):** add a `rw_mutex` so that once a writer is waiting, new readers block behind it. Writers do not starve, but readers can.
@@ -514,17 +614,46 @@ lock = 0;
 
 ## Unit 3 — quick revision checklist
 
-- [ ] Race condition definition + one interleaving example.
-- [ ] Critical section + 3 requirements (mutual exclusion, progress, bounded waiting).
-- [ ] Peterson’s algorithm code and why it works.
-- [ ] Test-and-set / compare-and-swap spinlock code.
-- [ ] Semaphore `wait`/`signal` pseudocode; binary vs counting.
+**Concurrency basics**
+
+- [ ] Independent vs cooperative processes.
+- [ ] Race condition definition + shared-counter example.
+- [ ] Critical section + 3 requirements: mutual exclusion, progress, bounded waiting.
+- [ ] Entry / critical / exit / remainder structure.
+
+**Mutual exclusion**
+
+- [ ] Software approaches: strict alternation (fails progress), Peterson (2 processes), Dekker, Bakery (n processes).
+- [ ] Peterson code + note (may fail on modern architectures).
+- [ ] Hardware: disable interrupts (uniprocessor), TestAndSet, Swap, CAS, LL/SC.
+- [ ] Test-and-set / Swap code + properties (atomic, mutual exclusion, progress, **no bounded wait**).
+- [ ] Busy waiting vs blocking; ticket lock for bounded waiting.
+
+**Semaphores**
+
+- [ ] busy-wait `while(S<=0); S--;` + blocking OS implementation.
+- [ ] Binary vs counting semaphore; range and use.
+- [ ] examples: `12, 10P, 4V → 6`; `7, 20P, xV → 5 ⇒ x = 18`.
+- [ ] note: semaphore gives mutual exclusion + progress, **not** bounded waiting.
 - [ ] Semaphore mutual-exclusion code; ordering semaphore code.
-- [ ] Monitor definition + condition variables; 6 differences from semaphore.
-- [ ] Producer–consumer: semaphore code (3 semaphores) and monitor code.
-- [ ] Why `wait(empty)` must come before `wait(mutex)`.
-- [ ] Readers–writers: first/second; reader/writer starvation.
-- [ ] Dining philosophers: 4 conditions, deadlock, 3 solutions (Unit 5).
-- [ ] IPC: shared memory vs message passing; 4 mechanisms.
-- [ ] Livelock vs deadlock vs starvation.
+- [ ] Implementation: atomic wait/signal, wait queue, signal wakes waiter.
 - [ ] Which semaphore type: binary for one resource, counting for N identical resources (Jan-24).
+
+**Monitors**
+
+- [ ] Monitor definition; only one process active inside.
+- [ ] Components: initialization code, private data, monitor procedures, entry queue.
+- [ ] Condition variables `x.wait`/`x.signal`; signal with no waiter has no effect.
+- [ ] Signal-and-wait vs signal-and-continue; Concurrent Pascal/Mesa/C#/Java.
+- [ ] Monitor vs semaphore: automatic vs manual mutual exclusion, condition variables, ease of use.
+
+**Classical problems**
+
+- [ ] Producer–consumer: semaphore code (3 semaphores), monitor code, trace.
+- [ ] Why `wait(empty)`/`wait(full)` must come before `wait(mutex)`; overflow/underflow prevention.
+- [ ] Readers–writers: `mutex`, `wrt`, `readcount`; trace; first/second/fair.
+- [ ] Reader starvation vs writer starvation.
+- [ ] Computer-lab semaphore design: counting `lab = N`, booking mutex, wait order.
+- [ ] Dining philosophers: naive deadlock, monitor solution, 4 alternatives.
+- [ ] IPC: shared memory vs message passing; pipes, queues, shared memory, sockets, RPC, signals.
+- [ ] Livelock vs deadlock vs starvation.

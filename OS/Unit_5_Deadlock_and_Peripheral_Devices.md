@@ -23,6 +23,8 @@
 
 A **deadlock** is a state in which a set of processes are permanently blocked, each waiting for a resource held by another process in the set. No process can proceed, so the system makes no progress.
 
+**Examples:** a system with **2 disk drives** where P1 and P2 each hold one drive and each needs another; four cars approaching a crossing, all stopping and none starting until the other has gone.
+
 **Coffman conditions — all four must hold simultaneously**
 
 | Condition | Meaning | OS example |
@@ -54,11 +56,19 @@ A **deadlock** is a state in which a set of processes are permanently blocked, e
 
 **Answer**
 
+**Three ways to handle deadlock**
+
+| Approach | Idea |
+|---|---|
+| **Prevention / avoidance** | Ensure the system will **never** enter a deadlock state |
+| **Detection / correction** | Allow the system to enter a deadlock state, then detect and recover |
+| **Ignorance** | Ignore the problem and pretend deadlocks never occur; used by most OSs, including UNIX (the “ostrich” approach) |
+
 Prevention attacks one of the four Coffman conditions so that deadlock is **structurally impossible**.
 
 | Condition attacked | Technique | Example / cost |
 |---|---|---|
-| **Mutual exclusion** | Make resources shareable (read-only files, spooling) | Not possible for printers/tape drives; spooling can serialize |
+| **Mutual exclusion** | Make resources shareable (read-only files, spooling) | Not required for **sharable** resources, but must hold for **non-sharable** resources. A printer cannot be shared simultaneously; a read-only file is a good example of a sharable resource. |
 | **Hold and wait** | Require a process to request **all** resources before it starts, or release all before requesting more | Low resource utilization; starvation; may not know future needs |
 | **No pre-emption** | If a request cannot be granted, pre-empt (take back) resources from the holder; roll back the victim | Works for CPU/memory; hard for printers/files; rollback cost |
 | **Circular wait** | Impose a **total ordering** on resource types; a process may request resources only in increasing order | Simple and practical; requires global numbering; may be restrictive |
@@ -87,6 +97,28 @@ Prevention attacks one of the four Coffman conditions so that deadlock is **stru
 **Answer**
 
 **Safe state:** there exists at least one order in which every process can finish using the currently available resources plus the resources released by processes that finish earlier. **Unsafe state** does not necessarily mean deadlock, but the OS cannot guarantee that deadlock will not occur.
+
+**Safe-state example — 12 magnetic tape drives**
+
+| Process | Max | Allocated | Need |
+|---|---:|---:|---:|
+| P0 | 10 | 5 | 5 |
+| P1 | 4 | 2 | 2 |
+| P2 | 9 | 2 | 7 |
+
+Currently 9 drives are held and 3 are available. Start with P1: it needs 2, gets them, finishes and returns its 2 allocated drives, so Work becomes `3 + 2 = 5`; then P0 needs 5 and gets them, finishes and returns 5, so Work becomes `5 + 5 = 10`; then P2 needs 7 and gets them. **Safe sequence: `<P1, P0, P2>`**.
+
+If P2 is given **one more** drive, available becomes 2. Only P1 can finish; after P1 returns its 2 drives, Work = 4, but P0 still needs 5 and P2 needs 6, so no safe sequence exists — the state is **unsafe**. If P0 and P2 then request 5 and 6 more drives, the system becomes deadlocked.
+
+**Resource-allocation-graph algorithm (single instance)**
+
+- A **claim edge** `Pi → Rj` (dashed) says process `Pi` may request resource `Rj` in the future.
+- A claim edge converts to a **request edge** when the process actually requests the resource.
+- A request edge converts to an **assignment edge** when the resource is allocated.
+- When the resource is released, the assignment edge reconverts to a claim edge.
+- Resources must be claimed **a priori**.
+- A request can be granted only if converting its request edge to an assignment edge **does not create a cycle** in the RAG. Cycle detection is the safety check.
+- Example: P2 requests R1, but R1 is already allocated to P1; both processes have a claim on R2. If P2 now requests R2, the request cannot be granted because the resulting state is unsafe — P1 could later request R2 and create a deadlock.
 
 **Data structures** (n processes, m resource types):
 
@@ -245,6 +277,7 @@ P0 cannot finish. The reason is visible from the totals: **total B in the system
 
 **Asked in:** P6 IT-R25 Q2(b).
 
+> 
 **Question (verbatim):**
 > Considering a system with five processes P0 through P4 and three resources of type A, B, C. Resource type A has 10 instances, B has 5 instances and type C has 7 instances. Suppose at time t0 following snapshot of the system has been taken:
 >
@@ -418,27 +451,39 @@ A **resource-allocation graph (RAG)** has:
 | Cycle, **single instance** per resource | Deadlock (cycle is necessary and sufficient) |
 | Cycle, **multiple instances** | Possible deadlock; must run the detection algorithm |
 
+**Wait-for graph (single instance)**
+
+For a single instance of each resource, the RAG can be collapsed into a **wait-for graph**: draw an edge `Pi → Pj` if `Pi` is waiting for a resource that `Pj` holds. `Pi → Pj` exists iff the RAG contains `Pi → Rq` and `Rq → Pj` for some resource `Rq`. Deadlock exists **if and only if the wait-for graph contains a cycle**. The OS maintains the wait-for graph and periodically invokes a cycle-search algorithm.
+
 **Example (single instance)**
 
 ```text
-P1 → R1 → P2 → R2 → P1
+P1 → R2 → P2 → R1 → P1
 ```
 
 - P1 holds R1 and requests R2.
 - P2 holds R2 and requests R1.
 - The cycle `P1 → R2 → P2 → R1 → P1` means both wait forever → **deadlock**.
 
-**Example (multiple instances)** — a cycle may not be deadlock if another instance can satisfy a request. Run:
+**Example (RAG with deadlock):** resource instances — R1 = 1, R2 = 2, R3 = 1, R4 = 3. P1 holds an R2 and waits for R1; P2 holds R1 and R2 and waits for R3; P3 holds R3 and waits for R2. The cycles `P1 → R1 → P2 → R3 → P3 → R2 → P1` (and `P2 → R3 → P3 → R2 → P2`) show that **P1, P2 and P3 are deadlocked**.
+
+**Example (multiple instances)** — a cycle may not be deadlock if another instance can satisfy a request. Run the detection algorithm:
 
 ```text
 Work = Available
-Finish[i] = false for all i
+For i = 0..n-1:
+    if Allocation[i] != 0 then Finish[i] = false
+    else Finish[i] = true          // a process holding nothing cannot be deadlocked
+
 repeat:
     find Pi with Finish[i] == false and Request[i] <= Work
     if found: Work = Work + Allocation[i]; Finish[i] = true
     else break
+
 if some Finish[i] == false: those processes are deadlocked
 ```
+
+**Example — cycle but no deadlock:** the graph `P1 → R1 → P3 → R2 → P1` contains a cycle, but `R2` has multiple instances. `P4` holds another instance of `R2` and is not waiting; it may finish and release `R2`. Then `P3` can obtain `R2`, finish, and break the cycle. Therefore a cycle in a multi-instance RAG is **not sufficient** for deadlock.
 
 **Jan-24 worked example — 3 processes, 2 resources**
 
@@ -496,6 +541,7 @@ Once detection finds a deadlock, the OS must break it.
    - priority of the process,
    - CPU time consumed / remaining time,
    - resources held and needed,
+   - how many processes will need to be terminated,
    - whether the process is interactive or batch,
    - number of times it has already been rolled back (avoid starvation).
 
@@ -602,6 +648,17 @@ A philosopher eats only when **both neighbours are not eating**. The monitor gua
 
 ### (a) Programmed I/O (polling)
 
+**Mechanism:** the I/O device does **not** have direct access to memory. Data is transferred from the I/O device to the CPU, and then from the CPU to memory. The device transfers **one byte at a time**:
+
+1. When a byte is available, the device places it on the I/O bus and enables the **Data valid** line.
+2. The interface accepts the byte into its **Data register** and enables the **Data accepted** line.
+3. The interface sets a bit in the **Status register**.
+4. The device can disable Data valid, but it will not transfer another byte until the interface disables Data accepted.
+5. The processor checks the flag bit of the Status register. If the flag is 1, the CPU reads the byte from the Data register.
+6. The flag is cleared (by the CPU or interface), the interface disables Data accepted, and the device can transfer the next byte. Each byte is read into a CPU register and then transferred to memory.
+
+**Procedure:**
+
 1. The CPU executes a program that issues a command to the device controller (read/write, address, count).
 2. The CPU repeatedly reads the controller’s **status register** and waits until the device is ready.
 3. When ready, the CPU reads/writes one data word through the data register.
@@ -621,15 +678,19 @@ loop: read status
 
 ### (b) Interrupt-driven I/O
 
+**Mechanism:** instead of the CPU constantly checking the flag, the **interface informs the computer** when it is ready to transfer data. While the CPU is running another program it does not check the flag; when the flag is set, the computer is momentarily interrupted, the CPU **stores the return address from the program counter into a memory stack**, and control branches to an **Interrupt Service Routine (ISR)** that processes the required I/O transfer. After the transfer, the computer returns to the previous program.
+
 1. The CPU issues a command and continues executing other work.
 2. The device controller interrupts the CPU when it is ready for the next word or when the operation completes.
-3. The CPU saves its state, runs the interrupt service routine (ISR), transfers one word, and returns.
+3. The CPU saves its state, runs the ISR, transfers one word, and returns.
 4. The cycle repeats for each word/block.
 
 - **Advantage:** CPU is not busy-waiting; better utilization than polling.
 - **Disadvantage:** an interrupt per word/block causes overhead; still the CPU participates in every transfer.
 
 ### (c) DMA (Direct Memory Access)
+
+**Mechanism:** data transfer between the I/O device and memory happens **without much intervention by the CPU**. The CPU sets the **DMA controller** with the starting **address**, the **count** of bytes/words and the **control signals**; the controller then moves the block. The  DMA block diagram shows the CPU, DMA controller, address/count/control signals, buffer and memory.
 
 1. The CPU programs the **DMA controller** with the memory address, block count, direction and device.
 2. The DMA controller transfers the whole block directly between the device and memory, without CPU involvement.
@@ -662,15 +723,38 @@ loop: read status
 
 ## Unit 5 — quick revision checklist
 
-- [ ] Deadlock definition + 4 Coffman conditions + one OS example each.
-- [ ] Why all four must hold; RAG cycle rule (single vs multiple instances).
-- [ ] Prevention: one technique per condition; resource ordering example.
-- [ ] Avoidance: safe/unsafe state; Need = Max − Allocation; safety algorithm.
+**Deadlock concepts**
+
+- [ ] Deadlock definition + examples (2 disk drives, 4 cars).
+- [ ] 4 Coffman conditions + one OS example each; why all four must hold.
+- [ ] RAG: process/resource nodes, request/assignment edges, dots for instances.
+- [ ] Single instance: cycle ⇔ deadlock; multiple instances: cycle necessary but not sufficient.
+- [ ] Wait-for graph: collapse RAG, deadlock ⇔ cycle.
+- [ ] Three ways to handle deadlock: prevention/avoidance, detection/correction, ignorance (ostrich).
+
+**Prevention and avoidance**
+
+- [ ] Prevention: one technique per condition; read-only file vs printer; resource ordering example.
+- [ ] Safe state vs unsafe state vs deadlock; safe sequence.
+- [ ] 12-tape-drive safe/unsafe example.
+- [ ] RAG algorithm (single instance): claim edge → request edge → assignment edge; grant only if no cycle.
+- [ ] Banker’s data structures: Available, Max, Allocation, Need = Max − Allocation.
+- [ ] Banker’s safety algorithm: Work/Finish, find Need ≤ Work, release, safe sequence.
 - [ ] Resource-request algorithm: 4 steps; rollback if unsafe.
-- [ ] Banker’s: be able to compute Need, run the work table, list a safe sequence, and handle a request.
-- [ ] Detection: RAG, cycle, single vs multiple instances, detection algorithm.
+- [ ] Banker’s numericals: IT-F24, IT-F25 (unsafe printed), IT-R25 (textbook example P1→P3→P4→P0→P2), AIML-R25, Jan-24.
+
+**Detection, recovery, classical problem**
+
+- [ ] Detection algorithm: `Finish[i]=true` if `Allocation[i]=0`; find Request ≤ Work; unfinished = deadlocked.
+- [ ] When to invoke detection; overhead/cycles.
+- [ ] Recovery: abort all/one, victim selection, pre-emption, rollback, starvation.
 - [ ] Jan-24 RAG: cycle `P1→R2→P2→R1→P1` with 2 R2 instances → not deadlock if P3 releases; safe `P3→P1→P2`.
-- [ ] Recovery: abort all/one, victim selection, pre-emption, rollback.
 - [ ] Dining philosophers: naive deadlock, monitor code, 4 alternative solutions.
-- [ ] Programmed I/O: polling loop; interrupt-driven: ISR per word; DMA: block transfer + completion interrupt.
-- [ ] DMA vs interrupt-driven: 6 differences.
+
+**Peripheral devices**
+
+- [ ] I/O module and three modes of transfer: programmed, interrupt-initiated, DMA.
+- [ ] Programmed I/O: Data valid/Data accepted handshake, status flag, byte-by-byte, CPU register → memory.
+- [ ] Interrupt-driven: return address saved on stack, ISR, return to program.
+- [ ] DMA: CPU sets address/count/control, block transfer, cycle stealing, completion interrupt.
+- [ ] Programmed vs interrupt-driven vs DMA: 6-row comparison.

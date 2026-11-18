@@ -69,7 +69,9 @@ Disk:        access = seek + rotational latency + transfer
 
 **Objectives:** convenience, efficiency, ability to evolve.
 
-**Functions:** process management, memory management, file management, device management, security/protection, error detection, accounting, user interface, networking.
+**Functions (6):** process management (manual loading, batch, multiprogramming, multiprocessing), memory management, file management, security (external backup / internal authentication), device management, command interpretation.
+
+**Standard extras:** error detection, accounting. Some books also list protection separately; protection is folded into security.
 
 **Services:** program execution, I/O, file-system operations, communication, error detection, resource allocation, accounting, protection.
 
@@ -82,8 +84,8 @@ Disk:        access = seek + rotational latency + transfer
 | **Multiprogramming batch** | Several jobs in memory; CPU overlaps I/O |
 | **Time-sharing** | Time quantum; interactive; response time matters |
 | **Multiprocessing/parallel** | Multiple CPUs/cores; load balancing, synchronization |
-| **Distributed** | Independent machines, single-system view; transparency, fault tolerance |
-| **Real-time (RTOS)** | Deadline-driven; hard vs soft; deterministic, priority-based |
+| **Distributed** | Loosely coupled machines; no shared memory/clock; single-system view; transparency, fault tolerance |
+| **Real-time (RTOS)** | Fixed response time; hard vs soft; deterministic, priority-based; hard = controls/robotics, limited secondary storage/ROM; soft = multimedia/VR |
 | **Network** | Each machine has its own OS; file/print sharing |
 | **Embedded/mobile** | Small footprint, power-aware, fixed function |
 
@@ -108,7 +110,9 @@ Disk:        access = seek + rotational latency + transfer
 | **Client–server** | Clients request services from servers | Distribution / message overhead |
 | **VM/hypervisor** | Guest OSs on virtual hardware | Isolation / overhead |
 
-**Microkernel diagram:** apps → user-space servers (file, driver, network) → microkernel (IPC, scheduling, basic memory, interrupts) → hardware. **Modularity:** add/replace a server without rebuilding the kernel; a crashed server does not crash the kernel; smaller trusted base. **Cost:** message passing/context switches.
+**Monolithic:** all OS services in kernel space; function calls are fast; static single binary; Linux/BSD; one service failure can crash the whole system; adding a service may require modifying/rebuilding the OS.
+
+**Microkernel:** minimal OS + **servers (system processes)**; a system containing the server is the **client-server model**. Diagram: apps → user-space servers (file, driver, network) → microkernel (IPC, scheduling, basic memory, interrupts) → hardware. **Modularity:** add/replace a server without rebuilding the kernel; a crashed server does not crash the kernel; smaller trusted base. **Cost:** message passing/context switches.
 
 ## 1.5 System bus
 
@@ -130,18 +134,19 @@ Disk:        access = seek + rotational latency + transfer
 
 **OS design considerations (write any 6):** scheduling/load balancing, synchronization, cache coherence (MESI), memory management/NUMA, IPC, scalability, fault tolerance, energy efficiency, interrupt handling, thread affinity/migration, real-time latency.
 
-## 1.7 System calls (syllabus gap)
+## 1.7 System calls (syllabus gap, 5 categories)
 
 | Type | Examples |
 |---|---|
-| Process control | `fork`, `exec`, `exit`, `wait`, `kill` |
-| File management | `open`, `read`, `write`, `close`, `lseek` |
-| Device management | `ioctl`, `read`, `write`, `mount` |
-| Information | `getpid`, `alarm`, `time` |
-| Communication | `pipe`, `socket`, `send`, `recv` |
-| Protection | `chmod`, `chown`, `umask` |
+| Process control | `create`, `terminate`, `load`, `execute`, `wait`, `signal`, allocate/free memory |
+| File management | `create`, `delete`, `open`, `close`, `read`, `write`, `reposition` |
+| Device management | `request`, `release`, `read`, `write`, attach/detach devices |
+| Information | get/set time or date, get/set system data, get/set attributes |
+| Communication | create/delete connection, `send`, `receive`, transfer status, attach remote devices |
 
-**Parameter passing:** registers, memory block + address in register, stack. Kernel validates pointers/permissions.
+**Extra (standard):** protection — `chmod`, `chown`, `umask`.
+
+**Modes:** user mode vs kernel/privileged mode; a system call switches to kernel mode (context switch), performs the service, and returns. **Parameter passing:** registers, memory block + address in register, stack. Kernel validates pointers/permissions.
 
 ---
 
@@ -166,6 +171,8 @@ NEW ──admit──► READY ──dispatch──► RUNNING ──exit──�
 
 **ULT vs KLT (Jan-24):** ULT = library-managed, kernel sees one process, fast switch, one blocking call blocks all (pure ULT), cannot use multiple cores. KLT = kernel-managed, individually scheduled, blocking one does not block others, can run on multiple cores.
 
+**Schedulers:** **job queue** = all processes; **ready queue** = in memory, ready; **device queue** = waiting for I/O. **Long-term** selects job → ready, controls degree of multiprogramming, CPU/I/O mix, batch, less frequent. **Short-term (CPU)** selects ready → CPU, at least every 100 ms, must be fast. **Medium-term** swaps out/in, reduces degree of multiprogramming.
+
 **Why creation/termination is expensive:** PCB, address space/page tables, program load, file table, scheduler queues; termination frees memory/files/devices, notifies parent, accounting, IPC cleanup.
 
 ## 2.2 Scheduling formulas
@@ -182,6 +189,8 @@ CPU utilization = busy time / total time
 
 **Criteria (P4 Q2b ii):** CPU utilization, throughput, turnaround time, waiting time, response time, fairness, predictability.
 
+**Four scheduling circumstances:** running→waiting (I/O/wait), running→ready (interrupt), waiting→ready (I/O complete), terminate. Conditions 1 and 4 force a new selection; 2 and 3 are a choice. Scheduling only under 1 and 4 = non-pre-emptive/cooperative; otherwise pre-emptive.
+
 ## 2.3 Algorithms — rule + trap
 
 | Algorithm | Rule | Trap |
@@ -192,6 +201,10 @@ CPU utilization = busy time / total time
 | **RR** | FIFO with quantum `q`, pre-emptive | `q` too small → overhead; too large → FCFS |
 | **Priority** | Highest priority first; pre-emptive or not | Starvation; use aging |
 | **MLFQ** | Multiple queues, feedback | Complex tuning |
+
+**Comparison table:** FCFS — non-preemptive, simplest, large WT; SJF — preemptive, least burst, small WT; Priority — preemptive, higher priority first, small WT; RR — preemptive, quantum-dependent, **large WT compared to all three**. **Performance table:** FCFS (CPU overhead low, throughput low, TAT high, response low); SJF (medium, high, medium, medium); Priority (medium, low, high, high); RR (high, medium, medium, high).
+
+> **Convention:** plain “SJF” in a question is solved as **non-preemptive** unless the question says “preemptive” or “SRTF”. State this above the Gantt chart if the paper is ambiguous.
 
 **Tie-breakers:** earlier arrival; then smaller PID. **RR queue:** new arrival joins before a pre-empted process is re-queued (state this).
 
@@ -268,6 +281,16 @@ lock = 0;
 
 ## 3.3 Semaphores
 
+**Definition (busy-wait):**
+
+```text
+wait/P(S):   while (S <= 0) ;   // no operation
+             S--;
+signal/V(S): S++;
+```
+
+All modifications are atomic. **Standard OS version (blocking):**
+
 ```text
 wait(S):   S = S − 1; if (S < 0) block and enqueue;
 signal(S): S = S + 1; if (S <= 0) wake one from queue;
@@ -276,7 +299,9 @@ signal(S): S = S + 1; if (S <= 0) wake one from queue;
 | Type | Value | Use |
 |---|---|---|
 | **Binary/mutex** | 0/1 | One resource / CS |
-| **Counting** | 0…N | N identical resources / buffer slots |
+| **Counting** | unrestricted (0…N or negative with waiters) | N identical resources / buffer slots |
+
+**Examples:** `12, 10P, 4V → 6`; `7, 20P, xV → 5 ⇒ x = 18`.
 
 **Which type? (Jan-24):** **binary semaphore (mutex)** for one shared resource / mutual exclusion; **counting** for N identical resources.
 
@@ -293,12 +318,16 @@ signal(mutex);
 
 **Implementation:** integer + queue; `wait/signal` atomic (disable interrupts or hardware instruction); block instead of busy-wait; `signal` wakes a waiter.
 
+**Note:** semaphore achieves **mutual exclusion** and **progress**, but **not bounded waiting** — a process can keep re-entering the CS. A FIFO/ticket queue is needed for bounded waiting.
+
 **Traps:** wrong wait order → deadlock; missing signal → permanent block; no ownership.
 
 ## 3.4 Monitors
 
 - High-level construct: shared data + procedures; **only one thread inside at a time**.
-- **Condition variables:** `wait(c)` releases monitor and blocks; `signal(c)` wakes one waiter. No memory — signal with no waiter is lost.
+- **Components:** initialization code, private data, monitor procedures, monitor entry queue.
+- **Condition variables:** `wait(c)` releases monitor and blocks; `signal(c)` wakes one waiter. No memory — signal with no waiter is lost. If no `x.wait()` is pending, `x.signal()` has no effect.
+- **Signal semantics:** signal-and-wait (P waits until Q leaves/waits) vs signal-and-continue (Q waits until P leaves/waits). Concurrent Pascal uses a compromise (P leaves, Q resumes); Mesa/C#/Java use signal-and-continue.
 - **vs semaphore:** automatic mutual exclusion, built-in condition variables, easier/safer; semaphore is low-level/manual and error-prone.
 
 **Monitor producer–consumer:**
@@ -330,20 +359,21 @@ Consumer: wait(full);  wait(mutex); remove(); signal(mutex); signal(empty);
 ## 3.6 Readers–Writers (first)
 
 ```c
-semaphore mutex=1, write=1; int readcount=0;
+semaphore mutex=1, wrt=1; int readcount=0;
 
 Reader: wait(mutex); readcount++;
-        if (readcount==1) wait(write);
+        if (readcount==1) wait(wrt);
         signal(mutex);
         read;
         wait(mutex); readcount--;
-        if (readcount==0) signal(write);
+        if (readcount==0) signal(wrt);
         signal(mutex);
 
-Writer: wait(write); write; signal(write);
+Writer: wait(wrt); write; signal(wrt);
 ```
 
 - First reader locks out writers; last reader releases.
+- **Trace:** first reader `mutex 1→0, readcount 0→1, wrt 1→0, mutex 0→1`; second reader `readcount 1→2`; when readcount returns to 0, `wrt 0→1`.
 - Readers-preference → writer starvation. Writers-preference adds a turnstile; fair solution uses FIFO.
 
 ## 3.7 IPC
@@ -387,8 +417,9 @@ Relocation, protection, sharing, logical organization, physical organization.
 | Internal fragmentation | External fragmentation |
 | Simple, fixed degree of multiprogramming | Complex, needs compaction |
 | No compaction | Compaction/coalescing |
+| Equal/unequal; overlays; multiple vs single queue | First/Best/Worst Fit |
 
-**Internal fragmentation:** wasted inside allocation. **External:** free memory scattered in holes.
+**Internal fragmentation:** wasted inside allocation. **External:** free memory scattered in holes. **Fixed details:** one part for OS; equal/unequal partitions; overlay if program too large; multiple queues (smallest fitting partition, some queues empty) vs single queue (smallest available partition, more multiprogramming); number of partitions limits processes.
 
 ## 4.3 Allocation rules
 
@@ -397,6 +428,8 @@ Relocation, protection, sharing, logical organization, physical organization.
 | First hole that fits | Smallest hole that fits | Largest hole | Continue from last point |
 | Fast | Small leftover | Large leftover | Spreads allocations |
 | May fragment start | Many tiny holes | Destroys large holes | Can leave holes behind pointer |
+
+**Example 2 (memorize):** partitions 150,500,200,300,550; processes 220,430,110,425. First-fit: 220→500, 430→550, 110→150, **425 waits**. Best-fit: 220→300, 430→500, 110→150, 425→550. Worst-fit: 220→550, 430→500, 110→330, **425 waits**. **Best-fit is best here.**
 
 ## 4.4 Past allocation results
 
@@ -423,6 +456,8 @@ physical = [f | d] = frame_table[p] × page_size + d
 offset bits = log2(page_size)
 ```
 
+**Paging example (32-byte memory, 4-byte pages):** page table 0→5, 1→6, 2→1, 3→2. `LA 0 → PA 20`, `LA 3 → 23`, `LA 4 → 24`, `LA 14 → 10`, `LA 11 → 7`, `LA 13 → 9`. **`paging.docx`:** 8 pages/4 frames, page size 1 KB, page table 0→2, 1→0, 2→3, 3→1: `(2,400) → 3472`, `(1,100) → 100`. **Internal fragmentation:** page size 2048 B, process 72,766 B → 36 frames, `2048 − 1086 = 962 B` wasted.
+
 **Segmentation**
 
 ```text
@@ -430,6 +465,10 @@ logical = [s | d]
 if d ≥ limit[s] → trap
 physical = base[s] + d
 ```
+
+**Segmentation example:** segment 0 base 1000 limit 400; segment 1 base 2000 limit 500; segment 2 base 3000 limit 300. `(0,200) → 1200`; `(1,450) → 2450`; `(2,320) → invalid` (320 > 300).: segment 2 base 4300, limit 400, offset 53 → 4353; segment 0 base 1400, limit 1000, offset 1222 → trap.
+
+**Segmented paging:** logical = segment number + page number + page offset; segment table entry → page table → frame. Advantages: less memory, page table bounded by segment size, one segment-table entry per segment, no external fragmentation, simpler allocation. Disadvantages: internal fragmentation, higher complexity, page tables must be contiguous.
 
 | Paging | Segmentation |
 |---|---|
@@ -441,14 +480,16 @@ physical = base[s] + d
 
 **TLB/EAT:** `EAT = (1−p)(t_TLB + t_mem) + p(t_TLB + 2t_mem)`.
 
-## 4.6 Demand paging — 6 steps
+## 4.6 Demand paging — steps
 
-1. Reference page → PTE invalid → page fault.
-2. Trap to OS; save state.
-3. Find free frame or evict victim (write back if dirty).
-4. Load page from swap/disk.
-5. Update page table/TLB; mark valid.
+1. OS checks the internal table: is the reference **valid** or **invalid**?
+2. **Invalid reference** (not in the process's logical address space) → **abort**.
+3. Valid but **not in memory** → page fault: find a free frame (or evict a victim; write back if dirty).
+4. Read the page from swap/disk into the frame.
+5. Update the internal table and page table; set valid bit = `v`.
 6. Restart the faulting instruction.
+
+**EAT:** `EAT = (1−p) × memory access + p × (page-fault overhead + [swap out] + swap in + restart overhead)`; `0 ≤ p ≤ 1`.
 
 **Thrashing:** high page-fault rate; system spends more time paging than executing. Fix: working-set model, page-fault frequency, more memory, better locality.
 
@@ -483,7 +524,7 @@ EAT = (1−p) × memory_time + p × fault_time
 
 ## 4.9 Swapping
 
-Move whole process between RAM and backing store. **+** frees memory, more multiprogramming; **−** slow disk I/O, context-switch cost, thrashing risk. Modern systems swap pages, not whole processes.
+Move whole process between RAM and **backing store**. **Details:** backing store is a fast disk large enough for all memory images; **roll out/roll in** is used for priority scheduling (lower-priority process swapped out for a higher-priority one); the major part of swap time is **transfer time**, proportional to the amount of memory swapped; UNIX/Linux/Windows use modified swapping; the system keeps a **ready queue** of processes whose images are on disk. **+** frees memory, more multiprogramming; **−** slow disk I/O, context-switch cost, thrashing risk. Modern systems swap pages, not whole processes.
 
 ---
 
@@ -531,6 +572,8 @@ pretend: Available -= Request; Allocation += Request; Need -= Request
 if safe → grant; else rollback and wait
 ```
 
+**RAG algorithm (single instance):** claim edge `Pi→Rj` (dashed) → request edge when requested → assignment edge when allocated → back to claim edge when released. Grant a request only if converting request to assignment **does not create a cycle**. example: P2 requests R1 (held by P1); both have a claim on R2; granting R2 to P2 is unsafe because P1 could later request R2 and deadlock.
+
 ## 5.4 Past Banker’s results
 
 | Paper | Key result |
@@ -546,9 +589,11 @@ if safe → grant; else rollback and wait
 ## 5.5 Deadlock detection and recovery
 
 - **RAG:** processes = circles, resources = rectangles with dots; request edge `Pi→Rj`, assignment `Rj→Pi`.
+- **Wait-for graph (single instance):** collapse RAG; edge `Pi→Pj` if Pi waits for a resource Pj holds. **Deadlock ⇔ cycle** in the wait-for graph; OS searches periodically.
 - Single instance: **cycle ⇔ deadlock**. Multiple instances: cycle is necessary but not sufficient; run detection algorithm.
-- **Detection algorithm:** Work = Available; find `Request[i] ≤ Work`; finish and release; unfinished processes are deadlocked.
-- **Recovery:** abort all; abort one at a time (re-detect); victim selection (priority, CPU time, resources, rollback count); resource pre-emption with rollback; ignore/reboot.
+- **Detection algorithm:** `Work = Available`; set `Finish[i] = false` only if `Allocation[i] != 0`, otherwise `true`; find `Request[i] ≤ Work`; finish and release; unfinished processes are deadlocked.
+- **Cycle but no deadlock:** `P1→R1→P3→R2→P1` with multiple R2 instances; P4 holds another R2 and may release it, so P3 can finish and break the cycle.
+- **Recovery:** abort all; abort one at a time (re-detect); victim selection (priority, CPU time, resources, how many processes must be terminated, interactive/batch, rollback count); resource pre-emption with rollback; ignore/reboot.
 - **Jan-24 RAG:** P1 holds R1, P2 and P3 each hold one R2, P1 wants R2, P2 wants R1. Cycle `P1→R2→P2→R1→P1`, but **not necessarily deadlock** because P3 can release its R2 → safe `P3→P1→P2`.
 
 ## 5.6 Dining Philosophers
@@ -566,15 +611,19 @@ if safe → grant; else rollback and wait
 | Simple | Needs interrupt controller | Needs DMA controller; cycle stealing |
 | Slow/simple devices | Moderate devices | Disk, network, large transfers |
 
-**Programmed I/O loop:** issue command → read status → wait ready → transfer word → update address/count → repeat.
+**Programmed I/O loop:** issue command → read status → wait ready → transfer word → update address/count → repeat. **Handshake:** device enables **Data valid** → interface accepts into **Data register** and enables **Data accepted** → status flag set → CPU checks flag, reads Data register → flag cleared → interface disables Data accepted → next byte. The CPU wastes time checking the flag.
 
-**DMA setup:** CPU writes memory address, count, direction, device → DMA transfers → completion interrupt.
+**Interrupt-driven:** interface informs the computer when ready; CPU stores the return address from the PC into a memory stack, branches to the **ISR**, transfers, and returns to the previous program.
+
+**DMA setup:** CPU writes memory address, count, direction, device/control signals → DMA transfers the block without much CPU intervention → completion interrupt.
 
 ---
 
 # 6. Unit 6 — I/O management and disk scheduling
 
 ## 6.1 I/O management roles
+
+**Categories:** **human readable** (printer, terminal, video display, keyboard, mouse), **machine readable** (disk, USB key, sensor, controller), **communication** (modem, digital line driver, NIC). **Differences:** data rate, application, complexity of control, unit of transfer (stream vs block), data representation, error conditions.
 
 Device independence, uniform interface, drivers, buffering, caching, spooling, interrupt handling, DMA, disk scheduling, error handling, protection, power management.
 
@@ -584,12 +633,12 @@ Device independence, uniform interface, drivers, buffering, caching, spooling, i
 
 ## 6.2 Buffering
 
-| Single | Double | Circular |
-|---|---|---|
-| One buffer | Two buffers, alternate | Ring of `n` buffers |
-| Limited overlap | Good overlap | Best for bursts |
-| Low memory | Medium | High memory/complexity |
-| Simple device | Printer/disk/graphics | Multimedia/network/keyboard |
+| No buffer | Single | Double | Circular |
+|---|---|---|---|
+| Process must be active; direct device access | One buffer; limited overlap; block-oriented or stream-oriented (line/byte) | Two buffers, alternate; buffer swapping; good overlap | Ring of `n` (≥2) buffers; best for bursts; I/O must keep up with process |
+| No overlap | Low memory; simple device | Medium memory; printer/disk/graphics | High memory/complexity; multimedia/network/keyboard |
+
+**Block-oriented single buffer:** read a full block into the buffer, transfer in smaller increments; on output, write to the buffer and schedule a disk write when full. **Stream-oriented:** line-at-a-time for scroll-mode terminals; byte-at-a-time for forms-mode terminals/sensors.
 
 **Benefits:** smooth speed mismatch, overlap CPU/device, handle bursts, copy semantics. **Cost:** memory, copying, synchronization.
 
@@ -599,6 +648,7 @@ Device independence, uniform interface, drivers, buffering, caching, spooling, i
 Access time = seek + rotational latency + transfer
 Average rotational latency = 1/2 × (60 / RPM) seconds
 Transfer time = bytes / transfer rate
+Disk bandwidth = total bytes transferred / total time (first request → last transfer)
 Total seek time = Σ |head_now − head_next|
 ```
 
@@ -614,6 +664,8 @@ Total seek time = Σ |head_now − head_next|
 | **C-SCAN** | Service one direction; jump to 0 | Uniform wait / long jump |
 | **LOOK** | SCAN, stop at last request | Less travel / slightly complex |
 | **C-LOOK** | C-SCAN, jump to lowest pending | Least travel / complex |
+
+**Standard example:** queue `98,183,37,122,14,124,65,67`, head `53`, range `0–199`: **FCFS 640, SSTF 236, SCAN 236, C-SCAN 382, LOOK 299, C-LOOK 322**. SCAN = `(53−0)+(183−0)` (starts down); C-SCAN = `(199−53)+(199−0)+(37−0)` (starts up); LOOK = `(183−53)+(183−14)`; C-LOOK = `(183−53)+(183−14)+(37−14)`.
 
 ## 6.5 Past disk results
 
@@ -649,6 +701,8 @@ Total seek time = Σ |head_now − head_next|
 | 6 | Double parity | N−2 | 2 | Large arrays |
 | 10 | Mirror + stripe | N/2 | 1 per pair | Database/IOPS |
 
+**Flavors:** common **0, 1, 5, 10**; rare **2, 3, 4, 6, 50**. **RAID 0:** split data, good performance, no redundancy, read-only NFS/gaming. **RAID 1:** mirroring, two identical copies, twice disks, survives while one drive works. **RAID 5:** parity + CRC, distributed parity, good performance/fault tolerance/capacity. **RAID 6:** double parity, best data integrity, longer write time. **RAID 10:** nested RAID 1+0, mirror + stripe, good performance and failover, 50% capacity.
+
 **Parity** = XOR; can reconstruct one lost block. **RAID 6** uses two parity blocks. **Write penalty** on RAID 5/6. **Hot spare** rebuilds automatically.
 
 **Jan-24 example (4 × 1 TB disks):** RAID 0 = 4 TB, no fault; RAID 1/10 = 2 TB, mirror survives; RAID 5 = 3 TB, survives 1; RAID 6 = 2 TB, survives 2.
@@ -661,6 +715,7 @@ Total seek time = Σ |head_now − head_next|
 |---|---|
 | “Draw Gantt chart, find average WT/TAT” | Draw timeline → table CT/WT/TAT → averages. State pre-emptive/non-pre-emptive and tie rule. |
 | “SJF pre-emptive” | Use SRTF; re-check at every arrival. |
+| “SJF” (no qualifier) | Use **non-pre-emptive** by default; state it. table marks SJF pre-emptive, so mention the convention. |
 | “RR q = k” | Show ready queue; new arrivals before re-queued process. |
 | “Page replacement” | Table with frames after each ref; F/H; total faults/hits; best policy. |
 | “Frame size = 3/4” | Frames, not pages; show the resident set. |
@@ -675,7 +730,10 @@ Total seek time = Σ |head_now − head_next|
 | “Dining philosophers” | Naive deadlock; monitor/4-at-table/odd-even; starvation note. |
 | “Disk scheduling” | Movement table → sequence → total; compare SCAN vs LOOK. |
 | “SCAN with clustered requests” | Note travel to 0 may be wasteful; compare LOOK. |
-| “I/O buffering” | Single/double/circular table + diagram + benefits. |
+| “I/O buffering” | No-buffer / single (block or stream) / double / circular table + diagram + benefits. |
+| “Semaphore” | busy-wait `while(S<=0); S--;` first, then blocking; binary vs counting; bounded-wait note. |
+| “Paging numerical” | Use 32-byte/4-byte example: LA 0→20, 3→23, 4→24, 13→9. |
+| “Segmentation numerical” | Use the segment table: base 1000/2000/3000, limits 400/500/300; `(2,320)` invalid. |
 | “DMA vs interrupt-driven” | 6-row table; CPU involvement, transfer unit, hardware, use. |
 | “Programmed I/O” | Polling loop steps; busy wait disadvantage. |
 | “Microkernel” | Diagram + modularity/security + IPC overhead. |
@@ -692,10 +750,12 @@ Total seek time = Σ |head_now − head_next|
 - [ ] If unsafe, state **why** (e.g. total B = 4, P0 needs 5).
 - [ ] Disk answer shows each movement and the sum; state track range (0–199 / 0–169).
 - [ ] Allocation answer lists leftover holes and any unallocated process.
-- [ ] Synchronization code has `wait` before CS and `signal` after; order of `wait(empty/full)` vs `mutex` is correct.
-- [ ] Monitor answer mentions condition variables and automatic mutual exclusion.
-- [ ] Deadlock answer has all four conditions, not just a definition.
-- [ ] RAID answer distinguishes mirroring vs parity and states capacity/faults.
+- [ ] Synchronization code has `wait` before CS and `signal` after; order of `wait(empty/full)` vs `mutex` is correct; **semaphore note: no bounded waiting**.
+- [ ] Monitor answer mentions **initialization, private data, procedures, entry queue**, condition variables and signal semantics.
+- [ ] Deadlock answer has all four conditions, not just a definition; **wait-for graph** and detection initialization `Finish=true if Allocation=0`.
+- [ ] Paging/segmentation answer uses the examples (32-byte/4-byte; base 1000/2000/3000).
+- [ ] Disk answer includes the **Standard example** numbers and the Jan-24 numbers.
+- [ ] RAID answer distinguishes mirroring vs parity and states capacity/faults; **RAID 5/6/10 phrases**.
 - [ ] Assumptions written at the top: all-arrive-0, lower-number-higher-priority, track convention, page policy.
 - [ ] Diagrams labelled; tables have headers; pseudocode in code blocks.
 - [ ] Attempt every sub-part; a correct method/table earns partial marks even if the final number is wrong.

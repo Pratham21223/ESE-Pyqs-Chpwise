@@ -58,12 +58,13 @@ They are still useful as extra practice, but their questions and unit split do n
 
 ---
 
+
 ## 3. Unit map — where each question lives
 
 | Unit | File | What is covered |
 |---|---|---|
 | 1 | [Unit_1_OS_Overview.md](Unit_1_OS_Overview.md) | OS definition/objectives/functions/services, types of OS, uni/multi-programming terms, serial/batch, microkernel, system bus, OS architecture, multiprocessor vs multicore, design considerations |
-| 2 | [Unit_2_Process_Management_and_Scheduling.md](Unit_2_Process_Management_and_Scheduling.md) | Process states, PCB, process vs thread, ULT vs KLT, process creation/termination, pre-emptive vs non-pre-emptive, FCFS, SJF/SRTF, RR, Priority, comparison of algorithms |
+| 2 | [Unit_2_Process_Management_and_Scheduling.md](Unit_2_Process_Management_and_Scheduling.md) | Process states, PCB, schedulers/queues, process vs thread, ULT vs KLT, process creation/termination, pre-emptive vs non-pre-emptive, FCFS, SJF/SRTF, RR, Priority, comparison of algorithms |
 | 3 | [Unit_3_Concurrency_Control.md](Unit_3_Concurrency_Control.md) | Principles of concurrency, race conditions, critical section, mutual exclusion, hardware support, semaphores, monitors, Producer–Consumer, Readers–Writers, IPC |
 | 4 | [Unit_4_Memory_Management.md](Unit_4_Memory_Management.md) | Fixed/variable partitioning, fragmentation, First/Best/Worst/Next Fit, swapping, paging, segmentation, virtual memory, demand paging, page replacement |
 | 5 | [Unit_5_Deadlock_and_Peripheral_Devices.md](Unit_5_Deadlock_and_Peripheral_Devices.md) | Deadlock conditions, prevention, avoidance (Banker’s), detection (RAG), recovery, Dining Philosophers, programmed I/O, interrupt-driven I/O, DMA |
@@ -104,7 +105,7 @@ These are the places where the official key and a correct re-solution do not agr
 
 - Official key: 220 → 550 (left 330), 430 → 500 (left 70), **110 → 300**, 425 unallocated.
 - Standard worst-fit (including the 330 KB leftover): 220 → 550 (left 330), 430 → 500 (left 70), **110 → 330** (left 220), 425 unallocated.
-- The final result (425 unallocated) is the same. The worked answer uses the standard rule and notes the key’s variant.
+- The final result (425 unallocated) is the same. The worked answer uses the standard rule and flags the key’s variant.
 
 ### 5.4 P1 IT-F24 — Banker’s safe sequence
 
@@ -152,10 +153,9 @@ These are the places where the official key and a correct re-solution do not agr
 - **Q3(1) “Round Robin … in Non Preemptive mode”:** RR is pre-emptive by quantum by definition. The answer treats FCFS and SJF as non-pre-emptive and runs **RR with q = 10**; state this interpretation.
 - **Q2(1)(2) RAG:** R2 has two instances. The cycle `P1 → R2 → P2 → R1 → P1` is **not automatically a deadlock** because P3 holds the second R2 instance and is not waiting. The answer assumes P3 can finish and release R2; then the safe sequence is `P3 → P1 → P2`. If P3 never releases, the cycle can deadlock.
 - **Q3(1)(2) disk:** the previous request 1805 < current 2150, so the head is moving **upward**; C-SCAN services upward, jumps to 0, then services the low requests.
-- **Q1(1) scheduling:** all processes arrive at `t = 0`.
+- **Q3(1)(1) scheduling:** all processes arrive at `t = 0`.
 - **Q4(2)(2) first fit:** 425 KB remains unallocated.
 
----
 
 ## 6. Out-of-syllabus questions (listed, not dropped)
 
@@ -165,10 +165,10 @@ These appeared in the included papers but are outside the six units of `DJS23IMD
 |---|---|---|
 | P2 AIML-F24 | Q1(a)(i): “Define OS. Explain system bus and its types…” | **Partly out:** the OS definition is in Unit 1; the system bus is computer-organization content. It is still answered in Unit 1 §1.3. |
 | P3 IoT-F24 | Q1(A): fixed-point addition/subtraction (`010010.1 + 0110.110`, etc.) | Computer organization / arithmetic, not OS |
-| P3 IoT-F24 | Q3(B): linked allocation, 800 blocks, 200-block file, total space and average accesses | File systems / file allocation, not in the six units |
+| P3 IoT-F24 | Q3(B): linked allocation, 800 blocks, 200-block file, total space and average accesses | File systems / file allocation, outside the six units |
 | P3 IoT-F24 | Q4(A): Program Counter (PC) and Stack Pointer (SP) | Computer organization / CPU architecture |
 | P3 IoT-F24 | Q2(A): “File management and I/O Management” | Only the **I/O management** half is in Unit 6; file management is not a syllabus unit |
-| **P8 Jan-24** | **Q1(2): “Discuss pile and sequential file organization methods with their advantages.”** | File organization / file systems, not in the six OS units |
+| **P8 Jan-24** | **Q1(2): “Discuss pile and sequential file organization methods with their advantages.”** | File organization / file systems, outside the six OS units |
 | P7 AIML-R25 | Q4(B)(ii): **Next-fit** allocation | Syllabus lists only First/Best/Worst Fit; Next-fit is an extension |
 
 ### Verbatim text of the out-of-syllabus questions
@@ -199,11 +199,11 @@ Everything else is mapped into Units 1–6.
 
 These are still examinable because they are printed in the syllabus. The revision file gives the minimum needed:
 
-- **Unit 1:** system calls and their types (process control, file, device, information, communication, protection).
-- **Unit 2:** user-level vs kernel-level threads were not asked in the DJS23 papers, but **P8 Jan-24 Q1(4)(1)** asks them; the table is in Unit 2 §2.2A.
-- **Unit 4:** swapping; TLB/effective access time; Belady’s anomaly. Demand paging is now asked in **P8 Jan-24 Q1(4)(2)**.
-- **Unit 5:** full detection algorithm for multiple instances (P8’s RAG question is analysed in Unit 5 §5.8, but the formal algorithm is still worth revising).
-- **Unit 6:** C-LOOK; I/O devices and device controllers. RAID is now asked in **P8 Jan-24 Q2(2)** and covered in Unit 6 §6.9.
+- **Unit 1:** system calls and their types (five categories: process control, file, device, information maintenance, communication; protection is an extra).
+- **Unit 2:** user-level vs kernel-level threads (P8 Jan-24 asks them; Unit 2 §2.2A); why process creation/termination is expensive (P7; Unit 2 §2.3).
+- **Unit 4:** swapping; TLB/effective access time; Belady’s anomaly; the paging and segmentation examples (Unit 4 §4.9–4.10).
+- **Unit 5:** full detection algorithm for multiple instances and the wait-for graph (Unit 5 §5.8); Dining Philosophers (Unit 5 §5.10).
+- **Unit 6:** C-LOOK; I/O device categories/differences; I/O buffering sub-types; RAID levels (P8 Jan-24 Q2(2); Unit 6 §6.9).
 
 ---
 

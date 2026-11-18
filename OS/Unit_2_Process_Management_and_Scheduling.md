@@ -19,7 +19,9 @@
 
 **Answer**
 
-A **process** is a program in execution. It is more than the program text: it includes the program counter, CPU registers, stack, data section, heap and the current values of resources. A program is passive; a process is active.
+A **process** is a program in execution. It is an instance of a program running on a computer, an entity that can be assigned to and executed on a processor, and a unit of activity characterized by a single sequential thread of execution, a current state and an associated set of system resources (memory image, open files, locks, etc.). A program is a **passive** entity (an executable file); a process is an **active** entity with a program counter and associated resources.
+
+**Process memory:** when a program is loaded into memory and becomes a process, it is divided into four sections — **stack, heap, text and data**.
 
 **Five-state model**
 
@@ -68,6 +70,27 @@ The PCB is the kernel’s data structure for a process. It contains:
 
 ---
 
+## 2.1A Schedulers and scheduling queues **[5]**
+
+
+| Queue | Holds |
+|---|---|
+| **Job queue** | Set of **all** processes in the system |
+| **Ready queue** | Processes residing in main memory that are ready and waiting to execute; stored as a linked list whose header points to the first and last PCB |
+| **Device queue** | Processes waiting for a particular I/O device |
+
+| Scheduler | Role  | Frequency |
+|---|---|---|
+| **Long-term scheduler** | Selects a job from the **job queue** and loads it into the **ready queue**; controls the **degree of multiprogramming**; selects a good mix of **CPU-bound** and **I/O-bound** processes; mostly used in batch systems | Executes much less frequently; may be invoked only when a process leaves the system |
+| **Short-term scheduler (CPU scheduler)** | Selects a process from the **ready queue** and allocates the CPU to it | Executes at least once every **100 ms**; must be fast |
+| **Medium-term scheduler** | Removes processes from memory (swapping out) and later reintroduces them (swapping in); reduces the degree of multiprogramming | Used in time-sharing systems when memory is overcommitted or the process mix needs changing |
+
+**Queueing diagram:** rectangles are queues (ready queue and the set of device queues), circles are the resources that serve the queues, and arrows show the flow of processes. A running process may (1) issue an I/O request and enter an I/O queue, (2) create a subprocess and wait for its termination, or (3) be interrupted and put back in the ready queue.
+
+**CPU–I/O burst cycle:** process execution alternates between a **CPU burst** (process executes on the CPU) and an **I/O burst** (process waits for I/O). It begins with a CPU burst, then an I/O burst, then another CPU burst, and so on.
+
+---
+
 ## 2.2 Process vs thread **[5]**
 
 **Asked in:** P4 AIML-R24 Q2(a).
@@ -77,16 +100,27 @@ The PCB is the kernel’s data structure for a process. It contains:
 
 **Answer**
 
-A **thread** is the basic unit of CPU utilization inside a process. It has its own thread ID, program counter, register set and stack, but **shares** the code section, data section and open files with other threads of the same process.
+A **thread** is the **basic unit of CPU utilization** inside a process. It has its own **thread ID, program counter, register set and stack**, but **shares** the code section, data section and other OS resources (such as open files and signals) with other threads of the same process. A traditional process has a single thread of control; a multithreaded process can perform more than one task at a time.
+
+**Comparison table**
+
+| Comparison basis | Process | Thread |
+|---|---|---|
+| **Resource consumption** | Processes require more resources than threads | Threads generally need fewer resources |
+| **Dependency** | Individual processes are independent of each other | Threads are parts of a process and are dependent |
+| **Data and code sharing** | Processes have independent data and code segments | A thread shares the data segment, code segment and files with its peer threads |
+| **Treatment by OS** | All different processes are treated separately by the OS | All user-level peer threads are treated as a single task by the OS |
+| **Time for creation** | More time | Less time |
+| **Time for termination** | More time | Less time |
+
+**Additional differences (standard):**
 
 | Process | Thread |
 |---|---|
-| Program in execution; owns an address space | Lightweight execution unit inside a process |
-| Has its own code, data, heap, stack and PCB | Shares code/data/heap; has its own stack and registers |
+| Own address space and PCB | Shares code/data/heap; own stack and registers |
 | Context switch is expensive (memory map, TLB, caches) | Context switch is cheap (registers/stack only) |
-| Processes are isolated; one crash usually does not kill another | Threads share memory; one thread’s bad write can corrupt the process |
-| Inter-process communication needs OS mechanisms | Threads communicate through shared memory directly |
-| Creation/termination is slow | Creation/termination is fast |
+| Isolated; one crash usually does not kill another | Shares memory; one bad write can corrupt the process |
+| IPC needs OS mechanisms | Threads communicate through shared memory directly |
 | Good for isolation and fault containment | Good for parallelism and responsiveness |
 | Example: Chrome tab as a process | Example: worker threads inside a browser tab |
 
@@ -173,6 +207,15 @@ A **thread** is the basic unit of CPU utilization inside a process. It has its o
 | **Fairness** | Every process gets a share; no starvation | Balance |
 | **Predictability** | Same load gives similar response | Balance |
 
+**When can the CPU be re-scheduled? (four circumstances)**
+
+1. **Running → waiting** — e.g. an I/O request or `wait()` for a child.
+2. **Running → ready** — e.g. an interrupt.
+3. **Waiting → ready** — e.g. I/O completion.
+4. **Terminates**.
+
+For conditions 1 and 4 there is **no choice** — a new process must be selected. For conditions 2 and 3 there is a **choice** — continue the current process or select another. If scheduling takes place only under conditions 1 and 4, the system is **non-pre-emptive (cooperative)**; otherwise it is **pre-emptive**.
+
 **Pre-emptive vs non-pre-emptive**
 
 | Point | Pre-emptive | Non-pre-emptive |
@@ -221,6 +264,28 @@ CPU utilization       = busy time / total time
 | **Multilevel queue** | Different queues for different classes | Yes | Separates interactive/batch/system | Queue scheduling and starvation between queues |
 | **Multilevel feedback** | Moves jobs between queues | Yes | Adapts to behavior, good general-purpose | Complex, tuning parameters |
 
+**Comparison tables**
+
+*Table 1 — comparison of FCFS, SJF, priority and RR *
+
+| Parameter | FCFS | SJF | Priority | RR |
+|---|---|---|---|---|
+| **Pre-emption** | Non-pre-emptive | Pre-emptive  | Pre-emptive  | Pre-emptive |
+| **Complexity** | Simplest | Difficult to understand and code | Difficult to understand | Performance depends heavily on time-quantum size |
+| **Allocation** | CPU allocated in arrival order | CPU allocated to process with least CPU burst | Higher-priority job runs first | CPU allocated in arrival order, but with a fixed time slice |
+| **Waiting time** | Large | Small compared to FCFS | Small compared to FCFS | Large compared to all three |
+
+*Table 2 — overhead/performance *
+
+| Algorithm | CPU overhead | Throughput | Turnaround time | Response time |
+|---|---|---|---|---|
+| **FCFS** | Low | Low | High | Low |
+| **SJF** | Medium | High | Medium | Medium |
+| **Priority** | Medium | Low | High | High |
+| **RR** | High | Medium | Medium | High |
+
+> **Convention:** plain “SJF” is solved as **non-pre-emptive** unless the question says “pre-emptive” or “SRTF”; plain “priority” follows the paper’s wording. If the comparison table treats SJF as pre-emptive, state the convention above the Gantt chart and solve the pre-emptive version as well.
+
 **Example — priority pre-emptive** (used in the P4 numerical in 2.9):
 
 | Process | Arrival | Burst | Priority |
@@ -233,6 +298,13 @@ CPU utilization       = busy time / total time
 
 Lower number = higher priority. Gantt: `0–1 P1 | 1–2 P2 | 2–3 P1 | 3–4 P3 | 4–9 P5 | 9–16 P3 | 16–20 P4`.
 Average WT = 4.0, average TAT = 8.0. Full table is in 2.9.
+
+**Priority details from the**
+
+- **Internal priorities** are assigned by the OS using criteria such as average burst time, CPU-to-I/O ratio, system resource use and other kernel-visible factors.
+- **External priorities** are assigned by users based on job importance, fees paid, politics, etc.
+- Equal-priority processes are scheduled in **FCFS** order.
+- **Starvation/indefinite blocking:** a low-priority task may wait forever while higher-priority jobs keep arriving. **Aging** solves it by gradually raising the priority of a waiting job.
 
 ---
 
@@ -696,6 +768,7 @@ Order: P1, P2, P3, P4, P5, P6.
 
 **Asked in:** P8 Jan-24 Q3(1)(1).
 
+> 
 **Question (verbatim):**
 > Consider the set of 5 processes whose burst time are given below. All Processes arrived at time 0.
 >
@@ -767,16 +840,35 @@ Order: P3(3), P4(7), P1(10), P5(12), P2(29).
 
 ## Unit 2 — quick revision checklist
 
-- [ ] 5-state diagram + one line per state; 7-state extension.
-- [ ] PCB fields (7 rows).
-- [ ] Process vs thread: 7 differences.
-- [ ] Why creation/termination is expensive: 4 + 4 points.
-- [ ] Scheduling formulas: CT, TAT, WT, RT, averages, throughput, CPU utilization.
+**Process fundamentals**
+
+- [ ] Process definition; program passive vs process active; process memory = stack, heap, text, data.
+- [ ] 5-state diagram + one line per state; 7-state extension (suspended ready/blocked).
+- [ ] PCB fields (7 rows): state, PC, registers, scheduling, memory, accounting, I/O status.
+- [ ] Job queue vs ready queue vs device queue.
+- [ ] Long-term vs short-term vs medium-term scheduler; degree of multiprogramming; CPU-bound/I/O-bound mix.
+- [ ] CPU–I/O burst cycle.
+- [ ] Process vs thread: 6-row table + extra differences.
+- [ ] ULT vs KLT; many-to-one, one-to-one, many-to-many models.
+- [ ] Why process creation/termination is expensive.
+
+**Scheduling concepts**
+
+- [ ] Scheduling criteria: CPU utilization, throughput, TAT, WT, response time (+ fairness/predictability).
+- [ ] Four scheduling circumstances: running→waiting, running→ready, waiting→ready, terminate.
 - [ ] Pre-emptive vs non-pre-emptive: 6 differences.
-- [ ] FCFS, SJF, SRTF, RR, priority: rule + merits + demerits.
+- [ ] Formulas: CT, TAT = CT − AT, WT = TAT − BT, RT, averages, throughput, CPU utilization.
 - [ ] Convoy effect, starvation, aging.
+
+**Algorithms**
+
+- [ ] FCFS: rule, non-pre-emptive, convoy effect.
+- [ ] SJF non-pre-emptive and SRTF; burst prediction; tie by arrival/FCFS.
+- [ ] Priority: pre-emptive/non-pre-emptive, internal vs external, equal priority = FCFS, aging.
+- [ ] RR: quantum, circular ready queue, q too small → overhead, q too large → FCFS.
+- [ ] Multilevel queue and multilevel feedback queue (standard).
+- [ ] comparison tables: SJF/priority marked pre-emptive; CPU overhead/throughput/TAT/response.
 - [ ] Be able to draw the Gantt chart and compute averages for any table.
 - [ ] RR: show the ready queue; state whether a new arrival joins before a re-queued process.
 - [ ] SJF: state whether pre-emptive or non-pre-emptive; for ties use arrival time.
-- [ ] User-level vs kernel-level threads (Jan-24): 5 differences + blocking/multicore.
-- [ ] Jan-24 scheduling: FCFS 28.00/40.20, SJF 13.00/25.20, RR q=10 23.00/35.20.
+- [ ] Jan-24 scheduling: FCFS 28.00/40.20, SJF 13.00/25.20, RR q=10 23.00/35.20 (FCFS/RR values match).

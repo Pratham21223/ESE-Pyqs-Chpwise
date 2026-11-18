@@ -15,6 +15,17 @@
 
 I/O management hides the diversity of devices behind a uniform interface and uses the hardware efficiently.
 
+> 
+**Categories of I/O devices**
+
+| Category | Suitable for | Examples |
+|---|---|---|
+| **Human readable** | Communicating with the computer user | Printers, terminals, video display, keyboard, mouse |
+| **Machine readable** | Communicating with electronic equipment | Disk drives, USB keys, sensors, controllers |
+| **Communication** | Communicating with remote devices | Modems, digital line drivers, network interface card (NIC) |
+
+**Differences in I/O devices:** data rate (magnitudes of difference), application, complexity of control, unit of transfer (byte/character stream vs block), data representation (different encoding schemes) and error conditions (nature, reporting, range, consequences and available responses).
+
 | Role | What it does |
 |---|---|
 | **Device independence** | Programs use logical names/handles, not port numbers or controller registers |
@@ -49,7 +60,7 @@ The I/O subsystem also manages **block devices** (disks, random access, cached) 
 
 ---
 
-## 6.2 I/O buffering — single, double, circular **[8]**
+## 6.2 I/O buffering — no buffer, single, double, circular **[8]**
 
 **Asked in:** P3 IoT-F24 Q3(A)(1).
 
@@ -65,18 +76,30 @@ The I/O subsystem also manages **block devices** (disks, random access, cached) 
 - arrival jitter/bursts,
 - the need to copy data before the device writes it (copy semantics).
 
-### (a) Single buffering
+### (a) No buffer
+
+Without a buffer, the OS directly accesses the device when it needs data for a process; the process must be active. This offers no overlap and the process waits for the device.
+
+### (b) Single buffering
 
 ```text
 Device ──► [ buffer ] ──► Process
 ```
 
-- The OS fills one buffer; the process consumes it.
+- The OS assigns one buffer in main memory for the I/O request and fills it; the process consumes it.
 - While the process is consuming, the device may fill the same buffer only after it is free; otherwise the device waits.
 - Overlap is limited: fill and empty cannot fully overlap.
 - Simple; one buffer per device/stream.
 
-### (b) Double buffering
+**Sub-cases of single buffering**
+
+| Type | Behaviour |
+|---|---|
+| **Block-oriented single buffer** | Input/output between an application and a disk is buffered in the kernel. For input, read a full block into the buffer and transfer it in smaller increments to the process. For output, write to the buffer and, when it is full, schedule a disk write. Generally faster than no buffering. |
+| **Stream-oriented single buffer — line-at-a-time** | Appropriate for scroll-mode (dumb) terminals; user input is one line at a time, with carriage return signalling the end of a line; output is also one line at a time. |
+| **Stream-oriented single buffer — byte-at-a-time** | Used on forms-mode terminals, where each keystroke is significant, and for peripherals such as sensors and controllers. |
+
+### (c) Double buffering
 
 ```text
 Device ──► [ buffer A ] ──► Process
@@ -84,10 +107,12 @@ Device ──► [ buffer A ] ──► Process
 ```
 
 - Two buffers: while the device fills A, the process empties B; then roles swap.
+- A process can transfer data to or from one buffer while the OS empties or fills the other.
+- Also known as **buffer swapping**.
 - Better overlap and throughput; reduces producer/consumer waiting.
 - Cost: twice the memory; still a fixed capacity.
 
-### (c) Circular (ring) buffering
+### (d) Circular (ring) buffering
 
 ```text
         ┌──────────────────────────────┐
@@ -96,19 +121,20 @@ Device ──► [ buffer A ] ──► Process
           ▲ head (consumer)   ▲ tail (producer)
 ```
 
-- An array of `n` buffers treated as a ring; `head` is the next to consume, `tail` is the next to fill.
+- An array of `n` buffers treated as a ring; **two or more buffers** are used, and each individual buffer is one unit in the circular buffer. `head` is the next to consume, `tail` is the next to fill.
 - Producer advances `tail`; consumer advances `head`; both wrap modulo `n`.
 - If `head == tail` → empty; if `(tail+1) % n == head` → full (or use a counter).
-- Handles bursts and continuous streams (audio/video, network, keyboard).
+- Used when the I/O operation **must keep up with the process** (audio/video, network, keyboard).
 - More complex pointer management; needs synchronization (semaphores/mutex) in a concurrent system.
 
 **Comparison**
 
 | Type | Buffers | Overlap | Memory | Use |
 |---|---|---|---|---|
-| Single | 1 | Limited | Lowest | Simple device, low rate |
-| Double | 2 | Good | Medium | Printer/disk streams, graphics |
-| Circular | n | Best for bursts | Highest | Multimedia, network, keyboard |
+| **No buffer** | 0 | None | Lowest | Process must be active; direct device access |
+| **Single** | 1 | Limited | Low | Simple device, low rate; block or stream oriented |
+| **Double** | 2 | Good | Medium | Printer/disk streams, graphics; buffer swapping |
+| **Circular** | n (≥2) | Best for bursts | Highest | Multimedia, network, keyboard; I/O must keep up |
 
 **Benefits:** fewer waits, better CPU/device utilization, smoother response, support for copy semantics and spooling. **Cost:** memory, copying overhead, and complexity.
 
@@ -134,6 +160,8 @@ Transfer time      = bytes / transfer rate
 - Total ≈ `8 + 4.17 + 0.041 ≈ 12.2 ms`.
 
 **Disk scheduling** reorders the request queue to reduce **seek time**; rotational latency and transfer time are usually fixed for a given request.
+
+**Disk-bandwidth formula:** `disk bandwidth = total bytes transferred / total time between the first request for service and the completion of the last transfer`. Access time has two major components — **seek time** and **rotational latency** (sometimes printed as “rational latency,” a typo). An I/O request includes the input/output mode, disk address, memory address and number of sectors to transfer; an idle disk can work immediately, but a busy disk means requests must queue, and scheduling only makes sense when a queue exists.
 
 ---
 
@@ -400,6 +428,19 @@ Service upward to 169, then jump to 0 **without service**, and service upward ag
 | **LOOK** | SCAN but stop at the last request | Less travel than SCAN | Slightly more complex |
 | **C-LOOK** | C-SCAN but jump to the lowest pending request | Least travel of the circular variants | More complex |
 
+**Standard worked example** — request queue `98, 183, 37, 122, 14, 124, 65, 67`, head at `53`, tracks `0–199`:
+
+| Algorithm | Total | How it is obtained |
+|---|---:|---|
+| **FCFS** | **640** | `(98−53)+(183−98)+(183−37)+(122−37)+(122−14)+(124−14)+(124−65)+(67−65)` |
+| **SSTF** | **236** | Always pick the nearest request |
+| **SCAN** | **236** | `(53−0)+(183−0)` — starts downward to 0, then reverses |
+| **C-SCAN** | **382** | `(199−53)+(199−0)+(37−0)` — starts upward, jumps back to 0 |
+| **LOOK** | **299** | `(183−53)+(183−14)` — stops at the last request, does not go to 0 |
+| **C-LOOK** | **322** | `(183−53)+(183−14)+(37−14)` — jumps to the lowest pending request |
+
+In summary, **SSTF or LOOK is a reasonable default**, SCAN/C-SCAN perform better under heavy load, and performance depends on the number and type of requests and on the file-allocation method.
+
 **Formulas**
 
 ```text
@@ -419,7 +460,9 @@ Throughput = requests / total time
 **Question (verbatim):**
 > Explain different RAID levels with an example.
 
-**RAID = Redundant Array of Independent Disks.** It combines multiple disks for performance, reliability, or both.
+**RAID = Redundant Array of Independent Disks.** It combines multiple disks for performance, reliability, or both. RAID stands for *Redundant Array of Independent Disks* and is a technology that enables greater levels of performance, reliability and/or large volumes by using two or more hard disk drives concurrently through **mirroring, striping and error-correction** techniques.
+
+**Flavors:** the commonly used ones are **RAID 0, RAID 1, RAID 5 and RAID 10**; other types (RAID 2, 3, 4, 6, 50, …) are used rarely.
 
 | Level | Technique | Redundancy | Capacity | Fault tolerance | Typical use |
 |---|---|---|---|---|---|
@@ -440,6 +483,14 @@ Throughput = requests / total time
 - **Hot spare:** an idle disk automatically replaces a failed one and rebuilds.
 - **Write penalty:** RAID 5/6 writes require read-modify-write of parity; RAID 10 writes are simpler.
 - **Rebuild time:** larger disks take longer; RAID 6 reduces the risk during rebuild.
+
+**Level summaries**
+
+- **RAID 0:** splits data among two or more disks; good performance; **no data redundancy/failover**; used in read-only NFS systems and gaming systems. The diagram writes odd blocks A1, A3, A5, A7 to Disk 0 and even blocks A2, A4, A6, A8 to Disk 1.
+- **RAID 1:** data **mirroring**; two identical copies on two physical disks; twice as many disks as RAID 0; the array continues to operate as long as at least one drive is functioning.
+- **RAID 5:** ideal combination of good performance, good fault tolerance, high capacity and storage efficiency; uses **parity and CRC** to rebuild data after a disk failure; the key phrase is **distributed parity**.
+- **RAID 6:** uses **double parity**, seen as the best way to guarantee data integrity; has lesser MTBF compared with RAID 5 and a drawback of **longer write time**.
+- **RAID 10:** combines **RAID 1 and RAID 0** (mirror + stripe); gives both good performance and good failover handling; also called **nested RAID**; usable capacity is 50%.
 
 **Example (4 disks of 1 TB each)**
 
@@ -489,14 +540,45 @@ Throughput = requests / total time
 
 ## Unit 6 — quick revision checklist
 
-- [ ] 10 roles of I/O management; block vs character devices.
-- [ ] Single/double/circular buffering: diagram, overlap, memory, use.
-- [ ] Disk access time = seek + rotational + transfer; average rotational latency = 1/2 rotation.
+**I/O fundamentals**
+
+- [ ] 10 roles of I/O management: device independence, uniform interface, drivers, buffering, caching, spooling, interrupts, DMA, scheduling, error handling, protection, power.
+- [ ] I/O layers: user → system call → I/O subsystem → driver → controller → device.
+- [ ] I/O hardware: controller registers (data/status/control), port-mapped vs memory-mapped I/O, polling vs interrupt, DMA.
+- [ ] Block devices vs character devices.
+- [ ] categories: human readable, machine readable, communication + examples.
+- [ ] differences: data rate, application, complexity of control, unit of transfer, data representation, error conditions.
+
+**Buffering**
+
+- [ ] No buffer; single buffer; block-oriented single buffer; stream-oriented single buffer (line/byte).
+- [ ] Double buffer / buffer swapping.
+- [ ] Circular buffer: two or more buffers, head/tail, empty/full, I/O keeps up with process.
+- [ ] Benefits and costs of buffering.
+
+**Disk performance and scheduling**
+
+- [ ] Disk structure: platters, surfaces, tracks, sectors.
+- [ ] Access time = seek + rotational latency + transfer; average rotational latency = 1/2 × (60/RPM).
+- [ ] Disk bandwidth = bytes transferred / total time; request contents.
 - [ ] FCFS/SSTF/SCAN/C-SCAN/LOOK/C-LOOK: rule + one advantage + one disadvantage.
-- [ ] Compute total seek time for a request queue; show the movement table.
+- [ ] Compute total seek time; show movement table and sequence.
+- [ ] standard example (98,183,37,122,14,124,65,67; head 53): FCFS 640, SSTF 236, SCAN 236, C-SCAN 382, LOOK 299, C-LOOK 322.
 - [ ] SCAN vs LOOK: SCAN goes to the end, LOOK stops at the last request.
 - [ ] C-SCAN vs C-LOOK: jump to 0 vs jump to the lowest pending request.
-- [ ] RAID 0/1/5/6/10: technique, capacity, faults tolerated, use. **Jan-24 asked RAID explicitly.**
-- [ ] Parity vs mirroring; write penalty; rebuild.
+- [ ] Selection: SSTF/LOOK default, SCAN/C-SCAN under heavy load.
+
+**RAID**
+
+- [ ] RAID flavors: common 0,1,5,10; rare 2,3,4,6,50.
+- [ ] RAID 0: striping, no redundancy, speed, read-only NFS/gaming.
+- [ ] RAID 1: mirroring, two copies, 50% capacity, survives one drive.
+- [ ] RAID 5: block striping + distributed parity + CRC, survives one failure, write penalty.
+- [ ] RAID 6: double parity, survives two failures, longer write time.
+- [ ] RAID 10: nested RAID 1+0, mirror + stripe, good performance/failover, 50% capacity.
+- [ ] Parity = XOR; mirroring vs parity; hot spare/rebuild.
+
+**Past questions**
+
 - [ ] Jan-24 disk: FCFS 13011, SSTF 7586, C-SCAN 9917 (head 2150, previous 1805, 0–4999).
 - [ ] File management vs I/O management: 6 differences.

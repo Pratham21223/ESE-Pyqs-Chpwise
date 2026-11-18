@@ -21,26 +21,26 @@
 
 **Answer**
 
-An **operating system (OS)** is system software that acts as an intermediary between the user and the computer hardware. It manages all hardware and software resources, provides an environment in which programs can execute, and offers services that application programs use.
+An **operating system (OS)** is system software that acts as an intermediary between the user and the computer hardware. It manages all hardware and software resources, provides an environment in which programs can execute, and offers services that application programs use. It is an **organized set of programs** that controls and manages computer resources (hardware and software), schedules tasks, manages storage, and acts as a **resource allocator**.
 
-**Objectives**
+**Objectives **
 
-1. **Convenience** — make the computer easy and comfortable to use.
-2. **Efficiency** — use CPU, memory, I/O and storage efficiently.
-3. **Ability to evolve** — allow new hardware, services and features to be added without breaking existing applications.
+1. **Convenience** — make the computer more convenient to use.
+2. **Efficiency** — allow the computer system resources to be used in an efficient manner.
+3. **Ability to evolve** — permit effective development, testing and introduction of new system functions without interfering with service.
 
-**Basic functions**
+**Basic functions (list)**
 
 | Function | What the OS does |
 |---|---|
-| **Process management** | Create/terminate processes, schedule CPU, synchronize, communicate, handle deadlock |
-| **Memory management** | Allocate/deallocate memory, track free space, implement paging/segmentation, virtual memory |
-| **File management** | Create/delete files and directories, map files to blocks, control access |
-| **Device management** | Manage device drivers, buffering, caching, spooling, interrupts and DMA |
-| **Security and protection** | Authenticate users, enforce access rights, isolate processes |
-| **Error detection and handling** | Detect hardware/software errors, take corrective action, log errors |
-| **Accounting** | Record resource usage for billing and performance tuning |
-| **User interface** | CLI, GUI, batch interface |
+| **Process management** | A **process is a program in execution**. The OS creates/terminates processes, allocates resources when a process is created or running, and reclaims reusable resources when it finishes. The four process-management methods are: **manual loading, batch processing, multiprogramming, multiprocessing**. |
+| **Memory management** | Manages main memory, which is the repository of quickly accessible data shared by the CPU and I/O devices. Tracks the part of memory in use and the part not in use; allocates memory to processes and deallocates it when they finish. |
+| **File management** | A **file is a collection of related information**. The OS manages files stored on disk and provides functions to delete, copy, move, rename and view files; it also keeps backups on stable (non-volatile) storage. |
+| **Security** | Protects resources and information against destruction and unauthorized access. Types: **external security** (adequate backup data) and **internal security** (user authentication). |
+| **Device management** | Manages peripheral devices, accepts input from the user and gives the corresponding output; consists of policies and procedures for handling I/O devices. |
+| **Command interpretation** | Acts as the primary interface between the user and the rest of the system; understands and executes commands entered by the user. |
+
+> **Note:** many textbooks also list **error detection**, **accounting** and **protection** as separate functions; protection is folded into security here. In an exam, write the six functions first, then add the extra ones as a short note.
 
 **Services (what the OS offers to programs/users)**
 
@@ -53,6 +53,8 @@ An **operating system (OS)** is system software that acts as an intermediary bet
 - Accounting and logging.
 - Protection and security.
 - Networking and distributed services (in modern OSs).
+
+> **Note:** the presents services through the **five system-call categories** in 1.7 (process control, file management, device management, information maintenance, communication). Error detection, accounting and networking are standard additions.
 
 **Types of OS (short list for the 10-mark version)**
 
@@ -97,21 +99,24 @@ Serial processing, simple batch, multiprogramming batch, time-sharing (multi-tas
 ### (c) Multiprogramming batch
 
 - Several jobs are kept in memory; when the running job waits for I/O, the OS switches the CPU to another job.
-- Goals: maximize CPU utilization and throughput.
-- Needs memory protection, job scheduling and I/O management.
+- **Details:** a number of programs are executed simultaneously by a single processor; several processes reside in main memory; the OS picks and begins one of the jobs. In a non-multiprogramming system the CPU is idle while a program waits for I/O; in a multiprogramming system the CPU switches to another job, so it is not idle.
+- **Advantages:** efficient memory utilization, CPU never idle, higher throughput, limited waiting time.
+- **Disadvantages:** the user cannot interact with the job while it executes; longer turnaround time.
+- Goals: maximize CPU utilization and throughput. Needs memory protection, job scheduling and I/O management.
 
 ### (d) Time-sharing (multi-tasking)
 
 - The CPU switches rapidly between jobs using a **time slice (quantum)**.
-- Each user gets the impression of a dedicated machine; response time is the key criterion.
-- Needs pre-emptive scheduling, memory protection and synchronization.
+- **Details:** time-sharing/multitasking is a logical extension of multiprogramming; multiple jobs are executed by the CPU switching between them. The CPU scheduler selects a job from the ready queue and switches the CPU to it; when the time slot expires, the CPU switches to another job. CPU time is shared by different processes, and time slots are defined by the OS.
+- **Advantages:** efficient CPU utilization, interactive use of the computer at a reasonable cost, the user can interact with a job while it is executing (unlike batch).
+- Each user gets the impression of a dedicated machine; response time is the key criterion. Needs pre-emptive scheduling, memory protection and synchronization.
 
 ### (e) Real-time operating system (RTOS)
 
 - Correctness depends on **both the result and the time** at which it is produced.
-- **Hard real-time:** missing a deadline is a failure (airbag, flight control).
-- **Soft real-time:** missing a deadline degrades quality but is not catastrophic (video streaming).
-- Characteristics: determinism/predictability, priority-based pre-emptive scheduling, bounded interrupt latency, small overhead, reliability, resource efficiency.
+- **Hard real-time:** missing a deadline is a failure (airbag, flight control).: it guarantees that critical tasks are completed in time, is used with controls/robotics requiring precision movements, conflicts with time-sharing systems, and secondary storage is limited or absent (data is stored in short-term memory or ROM).
+- **Soft real-time:** missing a deadline degrades quality but is not catastrophic (video streaming).: a critical task gets priority over other tasks and retains that priority until it completes; because deadline support is lacking, it is risky for industrial control/robotics; it is useful for multimedia and virtual reality applications that need advanced OS features.
+- Characteristics: **response time is fixed**, determinism/predictability, priority-based pre-emptive scheduling, bounded interrupt latency, small overhead, reliability, resource efficiency (more RAM may be required, and advanced features such as virtual memory may not be needed).
 - Applications: embedded systems, medical devices, industrial control, aerospace, robotics.
 
 ### (f) Parallel operating system
@@ -123,10 +128,11 @@ Serial processing, simple batch, multiprogramming batch, time-sharing (multi-tas
 ### (g) Distributed operating system
 
 - Manages a group of independent, networked computers and makes them appear as **one system**.
+-: the processors **cannot share memory or a clock**; each processor has its own local memory, and they communicate through communication lines such as high-speed buses. These are called **loosely coupled** systems.
 - Characteristics:
   - **Transparency** — user does not see the distribution.
-  - **Resource sharing** — processors, memory, storage, printers across machines.
-  - **Fault tolerance** — replication and redundancy.
+  - **Resource sharing** — processors, memory, storage, printers across machines; a site can use a resource (e.g. a printer) available at another site.
+  - **Fault tolerance / reliability** — if one site fails, resources at other sites can still be used.
   - **Scalability** — add machines without redesign.
   - **Concurrency** — processes on different machines run and synchronize concurrently.
 - Examples: cloud platforms, Hadoop-style clusters, distributed Android device systems.
@@ -141,6 +147,7 @@ Network OS (each machine has its own OS, file/print sharing), embedded OS (fixed
 
 **Asked in:** P8 Jan-24 Q1(1).
 
+> 
 **Question (verbatim):**
 > Describe the terms uni-programming, multi-programming, multi-tasking, multi-processing, and multi- threading
 
@@ -203,7 +210,7 @@ A **microkernel** keeps only the minimum essential mechanisms in kernel mode:
 - CPU scheduling,
 - interrupt/exception handling.
 
-All other services — file systems, device drivers, networking, paging policies — run as **user-space server processes**. They communicate with each other and with the kernel by **message passing**.
+All other services — file systems, device drivers, networking, paging policies — run as **user-space server processes**. The microkernel is a minimal OS that performs only the essential functions; **system processes (servers)** perform all other OS functions, and a system that contains the server is called the **client-server model**. The servers communicate with each other and with the kernel by **message passing**.
 
 ```text
 +--------------------------------------------------+
@@ -233,12 +240,15 @@ All other services — file systems, device drivers, networking, paging policies
 
 **Trade-off:** microkernels are more modular, secure and reliable, but message-passing overhead can reduce performance. Examples: Mach, QNX, L4, seL4; hybrid designs (Windows NT, macOS XNU) keep some services in the kernel for speed.
 
+**Monolithic structure:** the entire OS works in kernel space, so the kernel and OS become large. Services such as memory management, file management and process scheduling are provided by **function calls** under the same address space, which makes execution fast. The kernel is a **static single binary**. Examples: **Linux, BSD**. A failure in any service can bring down the entire system, and adding a new service may require modifying/rebuilding the whole OS.
+
 ---
 
 ## 1.5 Multiprocessor vs multicore; OS design considerations **[10]**
 
 **Asked in:** P1 IT-F24 Q4(b); P6 IT-R25 Q4(b).
 
+> 
 **Questions (verbatim):**
 > Explain some of the key design considerations for an operating system when managing a multiprocessor or multicore system?
 
@@ -247,6 +257,8 @@ All other services — file systems, device drivers, networking, paging policies
 **Answer**
 
 ### Multiprocessor vs multicore
+
+**Short version:** a **multicore** contains multiple cores/processing units in a single CPU; a **multiprocessor** is made up of several CPUs. A multicore processor does not need complex configurations like a multiprocessor; a multiprocessor is more reliable and capable of running many programs.
 
 | Aspect | Multiprocessor | Multicore |
 |---|---|---|
@@ -301,6 +313,7 @@ All other services — file systems, device drivers, networking, paging policies
 
 **Architectural styles**
 
+> 
 | Architecture | Structure | Advantage | Disadvantage |
 |---|---|---|---|
 | **Monolithic** | All services in one kernel, direct calls | Fast | Large, hard to maintain, one bug can crash all |
@@ -320,32 +333,60 @@ All other services — file systems, device drivers, networking, paging policies
 
 **Answer**
 
-A **system call** is the programmatic interface through which a user process requests a service from the kernel. The process executes a trap/software interrupt, switches to kernel mode, and the kernel performs the operation and returns a result. Examples: `fork()`, `exec()`, `open()`, `read()`, `write()`, `wait()`, `malloc()` (which may call `brk`/`mmap`).
+A **system call** is the interface through which user-level applications interact with the kernel, the core component of the OS. Calls are generally available as **assembly-language instructions** and can also be made from high-level languages (UNIX calls can be invoked directly from C/C++).
 
-| Type | Purpose | Examples |
+The CPU runs in two modes: **user mode** and **kernel (privileged) mode**. In user mode a program does not have direct access to memory, hardware or other resources; in kernel mode it does. When a user program needs a protected resource, it makes a system call: the program switches from user mode to kernel mode (a **context switch**), the kernel performs the service, and control switches back to user mode.
+
+**Categories (five)**
+
+| Type | Purpose | examples |
 |---|---|---|
-| **Process control** | Create/terminate/wait/load processes | `fork`, `exec`, `exit`, `wait`, `kill` |
-| **File management** | Create/open/read/write/close files | `open`, `read`, `write`, `close`, `lseek`, `unlink` |
-| **Device management** | Request/release/read/write devices | `ioctl`, `read`, `write`, `mount`, `umount` |
-| **Information maintenance** | Get/set time, process attributes, system data | `getpid`, `alarm`, `sleep`, `time` |
-| **Communication** | Create/connect/send/receive messages | `pipe`, `socket`, `send`, `recv`, `shmget` |
-| **Protection** | Get/set permissions | `chmod`, `chown`, `umask` |
+| **Process control** | Create/terminate process, end/abort, load/execute, get/set process attributes, wait for time, wait/signal event, allocate/free memory | `create`, `terminate`, `load`, `execute`, `wait`, `signal` |
+| **File management** | Create/delete file, open/close file, read/write/reposition, get/set file attributes | `create`, `delete`, `open`, `close`, `read`, `write` |
+| **Device management** | Request/release device, read/write/reposition, get/set device attributes, logically attach/detach devices | `request`, `release`, `read`, `write`, `attach` |
+| **Information maintenance** | Get/set time or date, get/set system data, get/set process/file/device attributes | `get time`, `set time`, `getpid` |
+| **Communication** | Create/delete communication connection, send/receive messages, transfer status information, attach/detach remote devices | `pipe`, `socket`, `send`, `receive` |
 
-**Parameter passing methods:** registers, a block/table in memory whose address is in a register, or the stack. The kernel must validate every pointer and permission before using user-supplied addresses.
+> **Note:** some books add a sixth **protection** category (`chmod`, `chown`, `umask`). The five categories above are the core list; mention protection as an extra if the question is for 5+ marks.
+
+**Parameter passing methods (standard):** registers, a block/table in memory whose address is in a register, or the stack. The kernel must validate every pointer and permission before using user-supplied addresses.
 
 ---
 
 ## Unit 1 — quick revision checklist
 
-- [ ] OS definition + 3 objectives + 8 functions.
-- [ ] Difference between function (what the OS does) and service (what it offers).
-- [ ] Serial → simple batch → multiprogramming → time-sharing evolution; what problem each solved.
-- [ ] RTOS: hard vs soft, determinism, priority, bounded latency; 3 applications.
-- [ ] Parallel OS: load balancing, synchronization, scalability; 3 applications.
-- [ ] Distributed OS: transparency, resource sharing, fault tolerance, scalability, concurrency.
-- [ ] Microkernel diagram + 4 advantages + IPC overhead trade-off.
-- [ ] System bus: data/address/control; one line each.
+**Definitions and functions**
+
+- [ ] OS definition: system software, user–hardware interface, organized set of programs, resource allocator.
+- [ ] 3 objectives: convenience, efficiency, ability to evolve.
+- [ ] **6 functions**: process, memory, file, security, device, command interpretation.
+- [ ] Standard extras: error detection, accounting; protection folded into security in the.
+- [ ] Security types: external (backup data) vs internal (user authentication).
+- [ ] Services: program execution, I/O, file-system operations, communication, error detection, resource allocation, accounting, protection.
+
+**Types of OS**
+
+- [ ] Serial processing: no OS, sign-up sheet, setup time, no interaction.
+- [ ] Simple batch: monitor, jobs batched, no interaction, CPU idle during I/O.
+- [ ] Multiprogramming batch: several jobs in memory, CPU switches on I/O wait; advantages/disadvantages.
+- [ ] Time-sharing: time quantum, interactive, response time.
+- [ ] Parallel OS: multiple processors, load balancing, synchronization, scalability.
+- [ ] Distributed OS: **loosely coupled**, no shared memory/clock, local memories, transparency, resource sharing, fault tolerance.
+- [ ] RTOS: hard vs soft, fixed response time, priority, bounded latency, ROM/limited storage, multimedia/VR.
+- [ ] Other types: network, embedded/mobile, desktop/server.
+
+**Architecture and hardware**
+
+- [ ] Monolithic: all in kernel, function calls, static binary, Linux/BSD, one failure crashes all.
+- [ ] Microkernel: minimal kernel + **servers/system processes**, **client-server model**, IPC overhead.
+- [ ] Layered, modular, client–server, VM/hypervisor: one advantage + one disadvantage each.
+- [ ] System bus: data/address/control.
 - [ ] Multiprocessor vs multicore: 5 differences.
 - [ ] 10 OS design considerations for multiprocessor/multicore.
-- [ ] System-call types table (6 rows) + parameter passing.
+
+**System calls and terms**
+
+- [ ] System call definition; user mode vs kernel mode; context switch.
+- [ ] **5 categories**: process control, file, device, information maintenance, communication (+ protection as extra).
+- [ ] Parameter passing: registers, memory block + address, stack.
 - [ ] Uni-programming vs multi-programming vs multi-tasking vs multi-processing vs multi-threading (Jan-24).
